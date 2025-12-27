@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Flask
+instance/
+.webassets-cache
+
+# Project Specific
+uploads/
+outputs/
+
+# VS Code
+.vscode/
+
+# IntelliJ / PyCharm
+.idea/
+
+# Environment variables
+.env
+
+# OS generated files
+.DS_Store
+Thumbs.db
