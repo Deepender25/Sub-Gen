@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +11,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Header -->
@@ -27,16 +29,16 @@
                 <div class="upload-zone" id="uploadZone">
                     <div class="upload-content">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" class="upload-icon">
-                            <path d="M12 16L12 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <path d="M9 11L12 8L15 11" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                            <path d="M8 16H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            <path d="M12 16L12 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M9 11L12 8L15 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M8 16H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                         </svg>
                         <h3>Upload Video</h3>
                         <p>Drag & drop or click to browse</p>
                         <input type="file" id="fileInput" accept="video/*" hidden>
                     </div>
                 </div>
-                
+
                 <div class="video-container hidden" id="videoContainer">
                     <video id="mainVideo" controls>
                         Your browser does not support the video tag.
@@ -48,16 +50,19 @@
             <section class="editor-panel">
                 <div class="editor-header">
                     <h2>Subtitles</h2>
-                    <span id="videoDuration">00:00</span>
+                    <div class="meta-info">
+                        <span id="detectedLanguage" class="badge hidden">LANG</span>
+                        <span id="videoDuration">00:00</span>
+                    </div>
                 </div>
-                
+
                 <div class="subtitle-list" id="subtitleList">
                     <!-- Loading State -->
                     <div class="empty-state">
                         Upload a video to generate subtitles.
                     </div>
                 </div>
-                
+
                 <!-- Processing Overlay -->
                 <div class="processing-overlay hidden" id="processingOverlay">
                     <div class="spinner"></div>
@@ -69,4 +74,5 @@
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>

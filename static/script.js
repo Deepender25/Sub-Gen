@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Drag & Drop
     uploadZone.addEventListener('click', () => fileInput.click());
-    
+
     uploadZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         uploadZone.classList.add('dragover');
@@ -57,9 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // 1. Upload
             const uploadRes = await fetch('/upload', { method: 'POST', body: formData });
             const uploadData = await uploadRes.json();
-            
+
             if (!uploadRes.ok) throw new Error(uploadData.error);
-            
+
             currentFilename = uploadData.filename;
 
             // 2. Process
@@ -68,11 +68,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ filename: currentFilename })
             });
-            
+
             const processData = await processRes.json();
-             if (!processRes.ok) throw new Error(processData.error);
+            if (!processRes.ok) throw new Error(processData.error);
 
             subtitles = processData.segments;
+
+            // Show detected language
+            if (processData.language) {
+                const langBadge = document.getElementById('detectedLanguage');
+                langBadge.textContent = processData.language.toUpperCase();
+                langBadge.classList.remove('hidden');
+            }
+
             renderSubtitles();
             processingOverlay.classList.add('hidden');
             burnBtn.disabled = false;
@@ -106,9 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Auto-resize textarea
             const textarea = el.querySelector('textarea');
             textarea.addEventListener('input', (e) => {
-               subtitles[index].text = e.target.value;
+                subtitles[index].text = e.target.value;
             });
-            
+
             // Prevent seek on text click
             textarea.onclick = (e) => e.stopPropagation();
 
@@ -123,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Burn Video
     burnBtn.addEventListener('click', async () => {
         if (!currentFilename) return;
-        
+
         const originalText = burnBtn.innerText;
         burnBtn.innerText = "Processing...";
         burnBtn.disabled = true;
@@ -132,18 +140,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/burn', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     filename: currentFilename,
-                    segments: subtitles 
+                    segments: subtitles
                 })
             });
             const data = await res.json();
-            
+
             if (!res.ok) throw new Error(data.error);
-            
+
             // Trigger download
             window.location.href = data.download_url;
-            
+
         } catch (err) {
             alert("Error burning subtitles: " + err.message);
         } finally {

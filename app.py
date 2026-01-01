@@ -64,8 +64,12 @@ def process_video():
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     
     try:
-        segments = transcriber.transcribe_video(filepath, model_size="base")
-        return jsonify({'segments': segments})
+        # Use medium model for better quality and language detection
+        result = transcriber.transcribe_video(filepath, model_size="medium")
+        return jsonify({
+            'segments': result['segments'],
+            'language': result['language']
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

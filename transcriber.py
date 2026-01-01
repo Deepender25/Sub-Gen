@@ -22,4 +22,7 @@ def transcribe_video(video_path, model_size="base"):
     print(f"Transcribing {video_path}...")
     result = model.transcribe(video_path)
     
-    return result['segments']
+    return {
+        'segments': result['segments'],
+        'language': result['language']
+    }

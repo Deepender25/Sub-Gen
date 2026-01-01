@@ -8,7 +8,7 @@
     --border-color: #30363d;
     --success-color: #238636;
     --danger-color: #da3633;
-    
+
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
@@ -113,10 +113,11 @@ body {
     border-radius: 12px;
     transition: all 0.3s;
     cursor: pointer;
-    background-color: rgba(255,255,255,0.02);
+    background-color: rgba(255, 255, 255, 0.02);
 }
 
-.upload-zone:hover, .upload-zone.dragover {
+.upload-zone:hover,
+.upload-zone.dragover {
     border-color: var(--accent-color);
     background-color: rgba(88, 166, 255, 0.05);
 }
@@ -163,6 +164,24 @@ video {
     font-weight: 600;
 }
 
+.meta-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.badge {
+    background-color: rgba(88, 166, 255, 0.1);
+    color: var(--accent-color);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid rgba(88, 166, 255, 0.2);
+}
+
 .subtitle-list {
     flex: 1;
     overflow-y: auto;
@@ -170,7 +189,7 @@ video {
 }
 
 .subtitle-item {
-    background-color: rgba(255,255,255,0.03);
+    background-color: rgba(255, 255, 255, 0.03);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 12px;
@@ -181,7 +200,7 @@ video {
 
 .subtitle-item:hover {
     border-color: var(--border-color);
-    background-color: rgba(255,255,255,0.05);
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
 .subtitle-item.active {
@@ -237,7 +256,7 @@ video {
 .spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid rgba(255,255,255,0.1);
+    border: 3px solid rgba(255, 255, 255, 0.1);
     border-radius: 50%;
     border-top-color: var(--accent-color);
     animation: spin 1s ease-in-out infinite;
@@ -245,5 +264,7 @@ video {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
