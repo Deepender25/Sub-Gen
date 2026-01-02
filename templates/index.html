@@ -6,69 +6,129 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SubtitleGen - AI Subtitle Generator</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- Load Font -->
+    <!-- Load Font: Outfit for a more modern, premium feel -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 
 <body>
-    <div class="app-container">
+    <!-- Background Decor -->
+    <div class="bg-decoration">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <div class="layout-container">
         <!-- Header -->
-        <header class="app-header">
-            <div class="logo">SubtitleGen</div>
-            <div class="actions">
-                <button id="burnBtn" class="btn btn-primary" disabled>Burn & Download</button>
+        <header class="app-header fade-in-down">
+            <div class="logo-wrapper">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="17 8 12 3 7 8" />
+                        <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                </div>
+                <span class="logo-text">SubtitleGen</span>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <!-- Left Panel: Video Player -->
-            <section class="video-panel">
-                <div class="upload-zone" id="uploadZone">
-                    <div class="upload-content">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" class="upload-icon">
-                            <path d="M12 16L12 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                            <path d="M9 11L12 8L15 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                            <path d="M8 16H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                        </svg>
-                        <h3>Upload Video</h3>
-                        <p>Drag & drop or click to browse</p>
-                        <input type="file" id="fileInput" accept="video/*" hidden>
+        <main class="main-content fade-in-up">
+            <div class="main-card">
+                <!-- Step 1: Upload Zone -->
+                <section id="uploadSection" class="step-section active">
+                    <div class="upload-container">
+                        <div class="upload-zone" id="uploadZone">
+                            <div class="upload-content">
+                                <div class="icon-pulse-wrapper">
+                                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none"
+                                        class="upload-icon-large">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke="currentColor"
+                                            stroke-width="1.5" stroke-linecap="round" />
+                                        <path d="M17 8l-5-5-5 5" stroke="currentColor" stroke-width="1.5"
+                                            stroke-linecap="round" stroke-linejoin="round" />
+                                        <path d="M12 3v12" stroke="currentColor" stroke-width="1.5"
+                                            stroke-linecap="round" />
+                                    </svg>
+                                </div>
+                                <h2>Upload Video</h2>
+                                <p>Drag & drop your file here, or click to browse</p>
+                                <span class="tag">MP4, MOV, MKV supported</span>
+                                <input type="file" id="fileInput" accept="video/*" hidden>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                </section>
 
-                <div class="video-container hidden" id="videoContainer">
-                    <video id="mainVideo" controls>
-                        Your browser does not support the video tag.
-                    </video>
-                </div>
-            </section>
+                <!-- Step 2 & 3: Video Preview & Editor -->
+                <section id="editorSection" class="step-section hidden">
+                    <div class="editor-grid">
+                        <!-- Left: Video Player -->
+                        <div class="video-column">
+                            <div class="video-container">
+                                <video id="mainVideo" controls>
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
 
-            <!-- Right Panel: Subtitle Editor -->
-            <section class="editor-panel">
-                <div class="editor-header">
-                    <h2>Subtitles</h2>
-                    <div class="meta-info">
-                        <span id="detectedLanguage" class="badge hidden">LANG</span>
-                        <span id="videoDuration">00:00</span>
+                            <!-- Action Bar -->
+                            <div class="action-bar-glass">
+                                <button id="generateBtn" class="btn btn-primary btn-glow">
+                                    <span class="btn-icon">✨</span>
+                                    <span>Generate Subtitles</span>
+                                </button>
+
+                                <div id="postProcessActions" class="actions-group hidden">
+                                    <button id="downloadSrtBtn" class="btn btn-glass">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="7 10 12 15 17 10" />
+                                            <line x1="12" y1="15" x2="12" y2="3" />
+                                        </svg>
+                                        <span>Download SRT</span>
+                                    </button>
+                                    <button id="burnBtn" class="btn btn-glass">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                            stroke="currentColor" stroke-width="2">
+                                            <path d="M12 5v14M5 12h14" />
+                                        </svg>
+                                        <span>Burn Video</span>
+                                    </button>
+                                    <button id="resetBtn" class="btn btn-danger-glass">
+                                        <span>Reset</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Subtitle Editor -->
+                        <div class="subtitle-column" id="editorPanel">
+                            <div class="subtitle-header">
+                                <h3>Script <span id="subtitleCount" class="badge-count">0</span></h3>
+                                <span id="detectedLanguage" class="badge-lang hidden">DETECTING...</span>
+                            </div>
+
+                            <div class="subtitle-list-wrapper" id="subtitleList">
+                                <div class="empty-state">
+                                    <div class="empty-icon">📝</div>
+                                    <p>Your subtitles will appear here</p>
+                                    <span class="sub-text">Generate to start editing</span>
+                                </div>
+                            </div>
+
+                            <!-- Processing Overlay Inside Panel -->
+                            <div class="processing-overlay hidden" id="processingOverlay">
+                                <div class="loader-ring"></div>
+                                <p class="loading-text">Transcribing Audio...</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
-
-                <div class="subtitle-list" id="subtitleList">
-                    <!-- Loading State -->
-                    <div class="empty-state">
-                        Upload a video to generate subtitles.
-                    </div>
-                </div>
-
-                <!-- Processing Overlay -->
-                <div class="processing-overlay hidden" id="processingOverlay">
-                    <div class="spinner"></div>
-                    <p>Generating subtitles with AI...</p>
-                </div>
-            </section>
+                </section>
+            </div>
         </main>
     </div>
 

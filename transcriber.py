@@ -20,7 +20,10 @@ def transcribe_video(video_path, model_size="base"):
     model = whisper.load_model(model_size)
     
     print(f"Transcribing {video_path}...")
-    result = model.transcribe(video_path)
+    # Use initial_prompt to guide the model to use Latin script for Hindi (Hinglish)
+    # and maintain English for English parts.
+    prompt = "The following is a transcript in English and Hinglish. Hindi words are spelled efficiently in English script. Namaste, aap kaise hain? Main thik hoon. I am doing good."
+    result = model.transcribe(video_path, initial_prompt=prompt)
     
     return {
         'segments': result['segments'],

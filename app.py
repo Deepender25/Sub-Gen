@@ -66,9 +66,40 @@ def process_video():
     try:
         # Use medium model for better quality and language detection
         result = transcriber.transcribe_video(filepath, model_size="medium")
+        
+        # DEBUG: Log the first 3 segments to a file to verify text content
+        debug_log_path = os.path.join(app.config['OUTPUT_FOLDER'], 'debug_segments.log')
+        with open(debug_log_path, 'w', encoding='utf-8') as f:
+            f.write(f"Filename: {filename}\n")
+            segments = result.get('segments', [])
+            f.write(f"Total Segments: {len(segments)}\n")
+            for i, seg in enumerate(segments[:5]):
+                f.write(f"Seg {i}: {seg.get('text', 'NO_TEXT_KEY')}\n")
+        
         return jsonify({
             'segments': result['segments'],
             'language': result['language']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/save_srt', methods=['POST'])
+def save_srt():
+    data = request.json
+    filename = data.get('filename')
+    segments = data.get('segments')
+    
+    if not filename or not segments:
+        return jsonify({'error': 'Filename and segments required'}), 400
+
+    srt_filename = f"{os.path.splitext(filename)[0]}.srt"
+    srt_path = os.path.join(app.config['OUTPUT_FOLDER'], srt_filename)
+    
+    try:
+        video_editor.generate_srt(segments, srt_path)
+        return jsonify({
+            'message': 'SRT generated successfully',
+            'download_url': f"/download/{srt_filename}"
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
