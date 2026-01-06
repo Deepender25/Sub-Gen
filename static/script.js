@@ -1,25 +1,52 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // DOM Elements
+    // --- DOM Elements ---
     const uploadSection = document.getElementById('uploadSection');
     const editorSection = document.getElementById('editorSection');
     const uploadZone = document.getElementById('uploadZone');
     const fileInput = document.getElementById('fileInput');
-    const videoContainer = document.querySelector('.video-container'); // Note: selector might need adjustment if class used
+
+    // Editor Components
     const mainVideo = document.getElementById('mainVideo');
-    const subtitleList = document.getElementById('subtitleList');
-    const processingOverlay = document.getElementById('processingOverlay');
-    const generateBtn = document.getElementById('generateBtn');
-    const postProcessActions = document.getElementById('postProcessActions');
-    const burnBtn = document.getElementById('burnBtn');
-    const downloadSrtBtn = document.getElementById('downloadSrtBtn');
+    const subtitleOverlay = document.getElementById('subtitleOverlay');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const timeDisplay = document.getElementById('timeDisplay');
+
+    // Style Panel
+    const styleControls = document.getElementById('styleControls');
+    const noSelectionMsg = document.getElementById('noSelectionMsg');
+    const fontSizeInput = document.getElementById('fontSizeInput');
+    const fontSizeDisplay = document.getElementById('fontSizeDisplay');
+    const textColorInput = document.getElementById('textColorInput');
+    const bgColorInput = document.getElementById('bgColorInput');
+    const fontFamilyInput = document.getElementById('fontFamilyInput');
+    const startGenerateBtn = document.getElementById('startGenerateBtn');
+    const exportBtn = document.getElementById('exportBtn');
     const resetBtn = document.getElementById('resetBtn');
-    const subtitleCount = document.getElementById('subtitleCount');
 
-    // State
+
+    // Timeline
+    const timelineWrapper = document.getElementById('timelineWrapper');
+    const subtitleTrack = document.getElementById('subtitleTrack');
+    const playhead = document.getElementById('playhead');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+
+    // --- State ---
     let currentFilename = null;
-    let subtitles = [];
+    let subtitles = []; // Array of { start, end, text, style: {} }
+    let videoDuration = 0;
+    let selectedSubtitleIndex = -1;
+    let zoomLevel = 1; // 1 = 100% width, 2 = 200% width
 
-    // Drag & Drop
+    // --- Default Style ---
+    const defaultStyle = {
+        fontSize: '24px',
+        color: '#ffffff',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        fontFamily: 'Outfit'
+    };
+
+    // --- Upload Logic ---
     uploadZone.addEventListener('click', () => fileInput.click());
 
     uploadZone.addEventListener('dragover', (e) => {
@@ -27,113 +54,372 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadZone.classList.add('dragover');
     });
 
-    uploadZone.addEventListener('dragleave', () => {
-        uploadZone.classList.remove('dragover');
-    });
+    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
 
     uploadZone.addEventListener('drop', (e) => {
         e.preventDefault();
         uploadZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length) {
-            handleUpload(e.dataTransfer.files[0]);
-        }
+        if (e.dataTransfer.files.length) handleUpload(e.dataTransfer.files[0]);
     });
 
     fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length) {
-            handleUpload(e.target.files[0]);
-        }
+        if (e.target.files.length) handleUpload(e.target.files[0]);
     });
 
-    // Step 1: Handle Upload
     async function handleUpload(file) {
-        if (file.size > 500 * 1024 * 1024) { // 500MB limit
-            alert("File too large. Please upload < 500MB");
-            return;
-        }
+        if (file.size > 500 * 1024 * 1024) return alert("File too large (< 500MB)");
 
+        // 1. Setup Video
+        const localUrl = URL.createObjectURL(file);
+        mainVideo.src = localUrl;
+
+        // Wait for metadata to get duration
+        mainVideo.onloadedmetadata = () => {
+            videoDuration = mainVideo.duration;
+            timeDisplay.textContent = `00:00 / ${formatTime(videoDuration)}`;
+            initTimeline();
+        };
+
+        // 2. Upload to Backend
         const formData = new FormData();
         formData.append('video', file);
 
-        // Show player immediately for local review
-        mainVideo.src = URL.createObjectURL(file);
-
-        // Transition to Step 2
+        // Switch View
         uploadSection.classList.add('hidden');
-        uploadSection.classList.remove('active');
         editorSection.classList.remove('hidden');
-        editorSection.classList.add('active'); // You might want to define .active in CSS for step-section if needed, or just rely on hidden removal
 
         try {
+            console.log("Uploading...");
             const uploadRes = await fetch('/upload', { method: 'POST', body: formData });
+
+            if (!uploadRes.ok) throw new Error("Upload Failed");
             const uploadData = await uploadRes.json();
-
-            if (!uploadRes.ok) throw new Error(uploadData.error);
-
             currentFilename = uploadData.filename;
-            console.log("File uploaded:", currentFilename);
+
+            // 3. Ready for Manual Generation
+            console.log("Ready for generation");
 
         } catch (err) {
             console.error(err);
-            alert("Upload failed: " + err.message);
-            resetApp();
+
+            alert("Upload Error: " + err.message);
         }
     }
 
-    // Step 2: Generate Subtitles
-    generateBtn.addEventListener('click', async () => {
-        if (!currentFilename) return;
-
-        // UI Updates
-        processingOverlay.classList.remove('hidden');
-        generateBtn.classList.add('hidden');
-
+    async function generateSubtitles(filename) {
+        // Show loading state if needed (optional overlay)
         try {
-            const processRes = await fetch('/process', {
+            console.log("Generating Subtitles...");
+            const res = await fetch('/process', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: currentFilename })
+                body: JSON.stringify({ filename })
             });
 
-            const processData = await processRes.json();
-            if (!processRes.ok) throw new Error(processData.error);
+            if (!res.ok) throw new Error("Generation Failed");
+            const data = await res.json();
 
-            subtitles = processData.segments;
+            // Init Subtitles with Default Styles
+            subtitles = data.segments.map(seg => ({
+                ...seg,
+                style: { ...defaultStyle } // Clone default
+            }));
 
-            // Update UI with results
-            if (processData.language) {
-                const langBadge = document.getElementById('detectedLanguage');
-                langBadge.textContent = processData.language.toUpperCase();
-                langBadge.classList.remove('hidden');
-            }
+            renderTimeline();
 
-            renderSubtitles();
-
-            // Show Post-Process Actions
-            postProcessActions.classList.remove('hidden');
-            postProcessActions.style.display = 'flex'; // Ensure flex layout
+            // Enable Export
+            exportBtn.disabled = false;
+            exportBtn.classList.remove('disabled');
+            exportBtn.textContent = "Export Video (Soft Subs)";
 
         } catch (err) {
             console.error(err);
-            alert("Generation failed: " + err.message);
-            generateBtn.classList.remove('hidden'); // Show button again on error
-        } finally {
-            processingOverlay.classList.add('hidden');
+            alert("Generation Error: " + err.message);
+        }
+    }
+
+    // --- Timeline Logic ---
+    function initTimeline() {
+        // Reset zoom
+        zoomLevel = 1;
+        updateZoom();
+    }
+
+    function updateZoom() {
+        // Adjust track container width
+        const trackContainer = document.querySelector('.track-container');
+        const timeRuler = document.querySelector('.time-ruler');
+
+        // Ensure at least 100%, or more based on duration to make it usable
+        // Let's say 1 second = 20px at zoom 1.
+        if (videoDuration > 0) {
+            const pxPerSec = 20 * zoomLevel;
+            const totalWidth = videoDuration * pxPerSec;
+            // Min width 100% of container
+            const finalWidth = Math.max(timelineWrapper.clientWidth, totalWidth);
+
+            trackContainer.style.width = `${finalWidth}px`;
+            timeRuler.style.width = `${finalWidth}px`;
+
+            renderRuler(pxPerSec, finalWidth);
+            renderTimeline(); // Re-render segments with new pixel calculations
+        }
+    }
+
+    function renderRuler(pxPerSec, totalWidth) {
+        const timeRuler = document.querySelector('.time-ruler');
+        timeRuler.innerHTML = '';
+
+        // Determine tick interval based on zoom
+        // If pxPerSec is small (zoomed out), show every 10s or 5s
+        let interval = 1; // seconds
+        if (pxPerSec < 10) interval = 10;
+        else if (pxPerSec < 40) interval = 5;
+
+        for (let t = 0; t <= videoDuration; t += interval) {
+            const tick = document.createElement('div');
+            tick.className = 'ruler-tick';
+            tick.style.left = `${t * pxPerSec}px`;
+
+            const label = document.createElement('span');
+            label.className = 'tick-label';
+            label.textContent = formatTimeShort(t);
+
+            tick.appendChild(label);
+            timeRuler.appendChild(tick);
+        }
+    }
+
+    function formatTimeShort(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    zoomInBtn.addEventListener('click', () => { zoomLevel = Math.min(zoomLevel * 1.5, 5); updateZoom(); });
+    zoomOutBtn.addEventListener('click', () => { zoomLevel = Math.max(zoomLevel / 1.5, 0.5); updateZoom(); });
+
+    function renderTimeline() {
+        subtitleTrack.innerHTML = '';
+        if (videoDuration === 0) return;
+
+        const pxPerSec = 20 * zoomLevel;
+
+        subtitles.forEach((seg, index) => {
+            const el = document.createElement('div');
+            el.className = 'timeline-segment';
+            if (index === selectedSubtitleIndex) el.classList.add('selected');
+
+            // Calculate Position in Pixels
+            const left = seg.start * pxPerSec;
+            const width = (seg.end - seg.start) * pxPerSec;
+
+            el.style.left = `${left}px`;
+            el.style.width = `${Math.max(width, 2)}px`; // Min width visibility
+            el.textContent = seg.text;
+
+            // Interaction
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectSubtitle(index);
+            });
+
+            subtitleTrack.appendChild(el);
+        });
+    }
+
+    // Scrubbing Logic
+    timelineWrapper.addEventListener('click', (e) => {
+        // Seek to position
+        if (videoDuration === 0) return;
+
+        const rect = timelineWrapper.querySelector('.track-container').getBoundingClientRect();
+        // Calculate click position relative to the scrollable container content
+        const x = e.clientX - rect.left;
+        const totalWidth = rect.width;
+
+        const percent = x / totalWidth;
+        // But totalWidth is strictly related to duration now
+        // Time = px / pxPerSec
+        const pxPerSec = 20 * zoomLevel;
+        const seekTime = x / pxPerSec;
+
+        if (seekTime >= 0 && seekTime <= videoDuration) {
+            mainVideo.currentTime = seekTime;
+            // Only deselect if we didn't click a segment (handled by stopProp above)
+            if (!e.target.classList.contains('timeline-segment')) {
+                deselect();
+            }
         }
     });
 
-    // Step 3: Actions
+    // --- Selection & Style Logic ---
+    function selectSubtitle(index) {
+        selectedSubtitleIndex = index;
 
-    // Download SRT
-    downloadSrtBtn.addEventListener('click', async () => {
-        if (!currentFilename || !subtitles.length) return;
+        // Update Timeline Visuals
+        document.querySelectorAll('.timeline-segment').forEach((el, idx) => {
+            if (idx === index) el.classList.add('selected');
+            else el.classList.remove('selected');
+        });
 
-        const originalText = downloadSrtBtn.innerHTML;
-        downloadSrtBtn.textContent = 'Saving...';
-        downloadSrtBtn.disabled = true;
+        // Seek Video
+        mainVideo.currentTime = subtitles[index].start;
+
+        // Enable Panel
+        styleControls.classList.remove('disabled');
+        noSelectionMsg.style.display = 'none';
+
+        // Populate Inputs
+        const s = subtitles[index].style || defaultStyle;
+
+        // Parse values (fontSize '24px' -> 24)
+        fontSizeInput.value = parseInt(s.fontSize);
+        fontSizeDisplay.textContent = s.fontSize;
+        textColorInput.value = rgbToHex(s.color); // Handle mapping if needed
+        bgColorInput.value = rgbToHex(s.backgroundColor);
+        fontFamilyInput.value = s.fontFamily;
+
+        // Force immediate overlay update
+        renderOverlay();
+    }
+
+    // Input Listeners
+    fontSizeInput.addEventListener('input', (e) => {
+        if (selectedSubtitleIndex === -1) return;
+        const val = `${e.target.value}px`;
+        fontSizeDisplay.textContent = val;
+        subtitles[selectedSubtitleIndex].style.fontSize = val;
+        renderOverlay();
+    });
+
+    textColorInput.addEventListener('input', (e) => {
+        if (selectedSubtitleIndex === -1) return;
+        subtitles[selectedSubtitleIndex].style.color = e.target.value;
+        renderOverlay();
+    });
+
+    bgColorInput.addEventListener('input', (e) => {
+        if (selectedSubtitleIndex === -1) return;
+        // Ensure rgba output if opacity desired, input type color gives hex
+        subtitles[selectedSubtitleIndex].style.backgroundColor = e.target.value;
+        renderOverlay();
+    });
+
+    fontFamilyInput.addEventListener('change', (e) => {
+        if (selectedSubtitleIndex === -1) return;
+        subtitles[selectedSubtitleIndex].style.fontFamily = e.target.value;
+        renderOverlay();
+    });
+
+    // Global Click to Deselect - handled by Scrubbing listener now
+
+
+    function deselect() {
+        selectedSubtitleIndex = -1;
+        document.querySelectorAll('.timeline-segment').forEach(el => el.classList.remove('selected'));
+        styleControls.classList.add('disabled');
+        noSelectionMsg.style.display = 'block';
+    }
+
+    // --- Video Player & Overlay ---
+    playPauseBtn.addEventListener('click', () => {
+        if (mainVideo.paused) mainVideo.play();
+        else mainVideo.pause();
+    });
+
+    mainVideo.addEventListener('play', () => playPauseBtn.textContent = '⏸');
+    mainVideo.addEventListener('pause', () => playPauseBtn.textContent = '⏯');
+
+    mainVideo.addEventListener('timeupdate', () => {
+        const t = mainVideo.currentTime;
+        timeDisplay.textContent = `${formatTime(t)} / ${formatTime(videoDuration)}`;
+
+        // Update Playhead
+        if (videoDuration > 0) {
+            const pxPerSec = 20 * zoomLevel;
+            const leftPx = t * pxPerSec;
+            playhead.style.left = `${leftPx}px`;
+
+            // Auto scroll logic (optional but nice)
+            // If playhead moves out of view, scroll wrapper
+            const wrapper = document.getElementById('timelineWrapper');
+            const center = wrapper.clientWidth / 2;
+            if (leftPx > center) {
+                wrapper.scrollLeft = leftPx - center;
+            }
+        }
+
+        renderOverlay();
+    });
+
+    function renderOverlay() {
+        const t = mainVideo.currentTime;
+
+        // Find active segment
+        const activeSeg = subtitles.find(s => t >= s.start && t <= s.end);
+
+        if (activeSeg) {
+            subtitleOverlay.textContent = activeSeg.text;
+            subtitleOverlay.classList.remove('hidden');
+
+            // Apply Styles
+            const s = activeSeg.style || defaultStyle;
+            subtitleOverlay.style.fontSize = s.fontSize;
+            subtitleOverlay.style.color = s.color;
+            subtitleOverlay.style.backgroundColor = s.backgroundColor;
+            subtitleOverlay.style.fontFamily = s.fontFamily;
+
+            // Base styles
+            subtitleOverlay.className = 'subtitle-overlay'; // Reset class
+            subtitleOverlay.style.display = 'block';
+
+            // We apply most styles to the container or an inner span?
+            // The HTML has `div#subtitleOverlay`. We can style that directly.
+            // But we need to make sure text shadow/outline looks good.
+
+        } else {
+            subtitleOverlay.classList.add('hidden');
+            subtitleOverlay.style.display = 'none';
+        }
+    }
+
+    // --- Helpers ---
+    function formatTime(seconds) {
+        if (!seconds || isNaN(seconds)) return "00:00";
+        const date = new Date(seconds * 1000);
+        return date.toISOString().substr(14, 5); // MM:SS
+    }
+
+    // Simple hex helper (Inputs return hex, so we just use hex)
+    function rgbToHex(col) {
+        if (col.startsWith('#')) return col;
+        // Basic fallback for now
+        return '#000000';
+    }
+
+    // --- Generation & Export ---
+    startGenerateBtn.addEventListener('click', () => {
+        if (!currentFilename) return alert("Please upload a video first");
+
+        startGenerateBtn.disabled = true;
+        startGenerateBtn.innerHTML = "⏳ Generating...";
+
+        generateSubtitles(currentFilename).finally(() => {
+            startGenerateBtn.disabled = false;
+            startGenerateBtn.innerHTML = "✨ Regenerate Subtitles";
+        });
+    });
+
+    exportBtn.addEventListener('click', async () => {
+        if (!currentFilename || subtitles.length === 0) return;
+
+        const originalText = exportBtn.textContent;
+        exportBtn.disabled = true;
+        exportBtn.textContent = "Processing Export...";
 
         try {
-            const res = await fetch('/save_srt', {
+            const res = await fetch('/export_soft_subs', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -141,165 +427,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     segments: subtitles
                 })
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
 
-            // Trigger download
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Export failed");
+
+            // Download
             const link = document.createElement('a');
             link.href = data.download_url;
-            link.download = ''; // Browser handles name
+            link.download = '';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
 
         } catch (err) {
-            alert("Error saving SRT: " + err.message);
+            alert("Export Error: " + err.message);
         } finally {
-            downloadSrtBtn.innerHTML = originalText;
-            downloadSrtBtn.disabled = false;
+            exportBtn.disabled = false;
+            exportBtn.textContent = originalText;
         }
     });
 
-    // Burn Video
-    burnBtn.addEventListener('click', async () => {
-        if (!currentFilename) return;
+    resetBtn.addEventListener('click', () => {
 
-        const originalText = burnBtn.innerHTML;
-        burnBtn.innerHTML = "Processing...";
-        burnBtn.disabled = true;
-
-        try {
-            const res = await fetch('/burn', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    filename: currentFilename,
-                    segments: subtitles
-                })
-            });
-            const data = await res.json();
-
-            if (!res.ok) throw new Error(data.error);
-
-            window.location.href = data.download_url;
-
-        } catch (err) {
-            alert("Error burning subtitles: " + err.message);
-        } finally {
-            burnBtn.innerHTML = originalText;
-            burnBtn.disabled = false;
-        }
-    });
-
-    // Reset App
-    resetBtn.addEventListener('click', resetApp);
-
-    function resetApp() {
-        // Reset State
-        currentFilename = null;
-        subtitles = [];
-        mainVideo.src = '';
-
-        // Reset DOM
-        fileInput.value = '';
-        subtitleList.innerHTML = '<div class="empty-state"><p>Click "Generate Subtitles" to start AI transcription.</p></div>';
-        subtitleCount.textContent = '0';
-        document.getElementById('detectedLanguage').classList.add('hidden');
-
-        // Toggle Sections
-        editorSection.classList.add('hidden');
-        uploadSection.classList.remove('hidden');
-        uploadSection.classList.add('active');
-
-        // Reset Buttons
-        generateBtn.classList.remove('hidden');
-        postProcessActions.classList.add('hidden');
-        postProcessActions.style.display = 'none';
-    }
-
-    // Helper: Render Subtitles
-    function renderSubtitles() {
-        subtitleList.innerHTML = '';
-        subtitleCount.textContent = subtitles.length;
-
-        if (!subtitles || subtitles.length === 0) {
-            console.warn("No subtitles to render");
-            return;
-        }
-
-        subtitles.forEach((seg, index) => {
-            console.log(`Segment ${index}:`, seg); // Debug info
-
-            const el = document.createElement('div');
-            el.className = 'subtitle-item';
-            el.dataset.index = index;
-
-            // Click to seek
-            el.addEventListener('click', () => {
-                mainVideo.currentTime = seg.start;
-                mainVideo.play();
-            });
-
-            const startStr = formatTime(seg.start);
-            const endStr = formatTime(seg.end);
-
-            // Use safe value assignment
-            let textContent = seg.text ? seg.text.trim() : "";
-
-            // DEBUG: Explicitly mark empty text
-            if (!textContent) {
-                textContent = "[NO SPEECH DETECTED]";
-            }
-
-            el.innerHTML = `
-                <div class="timestamps">${startStr} - ${endStr}</div>
-                <textarea class="subtitle-text" placeholder="Enter subtitle text..."></textarea>
-            `;
-
-            const textarea = el.querySelector('textarea');
-            textarea.value = textContent; // Set value directly
-
-            // Auto-resize function
-            const autoResize = (target) => {
-                target.style.height = 'auto';
-                target.style.height = target.scrollHeight + 'px';
-            };
-
-            // Initial resize
-            // Timeout ensures DOM is painted before calculating height
-            setTimeout(() => autoResize(textarea), 0);
-
-            // Sync Edits & Resize
-            textarea.addEventListener('input', (e) => {
-                subtitles[index].text = e.target.value;
-                autoResize(e.target);
-            });
-
-            // Prevent seek preventing text selection
-            textarea.addEventListener('click', (e) => e.stopPropagation());
-
-            subtitleList.appendChild(el);
-        });
-    }
-
-    function formatTime(seconds) {
-        return new Date(seconds * 1000).toISOString().substr(11, 8);
-    }
-
-    // Sync Active Highlighting
-    mainVideo.addEventListener('timeupdate', () => {
-        const time = mainVideo.currentTime;
-        document.querySelectorAll('.subtitle-item').forEach((el, idx) => {
-            const seg = subtitles[idx];
-            if (seg && time >= seg.start && time <= seg.end) {
-                if (!el.classList.contains('active')) {
-                    el.classList.add('active');
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            } else {
-                el.classList.remove('active');
-            }
-        });
+        location.reload();
     });
 });
-

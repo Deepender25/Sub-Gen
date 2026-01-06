@@ -138,5 +138,35 @@ def burn_video():
 def download_file(filename):
     return send_from_directory(app.config['OUTPUT_FOLDER'], filename, as_attachment=True)
 
+@app.route('/export_soft_subs', methods=['POST'])
+def export_soft_subs():
+    data = request.json
+    filename = data.get('filename')
+    segments = data.get('segments')
+    
+    if not filename or not segments:
+        return jsonify({'error': 'Filename and segments required'}), 400
+
+    input_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    srt_filename = f"{os.path.splitext(filename)[0]}.srt"
+    srt_path = os.path.join(app.config['OUTPUT_FOLDER'], srt_filename)
+    
+    # 1. Generate SRT
+    video_editor.generate_srt(segments, srt_path)
+    
+    # 2. Embed Soft Subs (MKV)
+    output_filename = f"softstats_{os.path.splitext(filename)[0]}.mkv"
+    output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
+    
+    success = video_editor.embed_soft_subtitles(input_path, srt_path, output_path)
+    
+    if success:
+        return jsonify({
+            'message': 'Soft subtitles exported successfully',
+            'download_url': f"/download/{output_filename}"
+        })
+    else:
+        return jsonify({'error': 'Failed to export soft subtitles'}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

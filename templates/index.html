@@ -63,67 +63,127 @@
                     </div>
                 </section>
 
-                <!-- Step 2 & 3: Video Preview & Editor -->
+                <!-- Step 2 & 3: Video Editor Suite -->
                 <section id="editorSection" class="step-section hidden">
-                    <div class="editor-grid">
-                        <!-- Left: Video Player -->
-                        <div class="video-column">
-                            <div class="video-container">
-                                <video id="mainVideo" controls>
-                                    Your browser does not support the video tag.
-                                </video>
+                    <div class="video-editor-suite">
+                        <!-- Top Area: Video & Style Panel -->
+                        <div class="editor-top-row">
+                            <!-- Left: Video Preview Area -->
+                            <div class="video-preview-area">
+                                <div class="video-wrapper">
+                                    <video id="mainVideo" playsinline>
+                                        Your browser does not support the video tag.
+                                    </video>
+                                    <!-- Dynamic Subtitle Overlay -->
+                                    <div id="subtitleOverlay" class="subtitle-overlay hidden"></div>
+                                </div>
+
+                                <!-- Video Controls (Custom or Native) -->
+                                <div class="video-controls-bar">
+                                    <button id="playPauseBtn" class="control-btn">⏯</button>
+                                    <span id="timeDisplay" class="time-display">00:00 / 00:00</span>
+                                </div>
                             </div>
 
-                            <!-- Action Bar -->
-                            <div class="action-bar-glass">
-                                <button id="generateBtn" class="btn btn-primary btn-glow">
-                                    <span class="btn-icon">✨</span>
-                                    <span>Generate Subtitles</span>
-                                </button>
+                            <!-- Right: Style & Inspector Panel -->
+                            <div class="style-panel">
+                                <div class="panel-header">
+                                    <h3>Text Style</h3>
+                                </div>
+                                <div class="panel-content">
+                                    <!-- Conditional State: Only active when a subtitle is selected -->
+                                    <div id="styleControls" class="style-controls disabled">
+                                        <div class="control-group">
+                                            <label>Font Size</label>
+                                            <div class="range-wrapper">
+                                                <input type="range" id="fontSizeInput" min="12" max="72" value="24">
+                                                <span id="fontSizeDisplay">24px</span>
+                                            </div>
+                                        </div>
 
-                                <div id="postProcessActions" class="actions-group hidden">
-                                    <button id="downloadSrtBtn" class="btn btn-glass">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                            <polyline points="7 10 12 15 17 10" />
-                                            <line x1="12" y1="15" x2="12" y2="3" />
-                                        </svg>
-                                        <span>Download SRT</span>
+                                        <div class="control-group">
+                                            <label>Color</label>
+                                            <div class="color-picker-wrapper">
+                                                <input type="color" id="textColorInput" value="#ffffff">
+                                                <span>Text Color</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="control-group">
+                                            <label>Background</label>
+                                            <div class="color-picker-wrapper">
+                                                <input type="color" id="bgColorInput" value="#000000">
+                                                <span>Bg Color</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="control-group">
+                                            <label>Font Family</label>
+                                            <select id="fontFamilyInput" class="styled-select">
+                                                <option value="Outfit">Outfit (Default)</option>
+                                                <option value="Arial">Arial</option>
+                                                <option value="Times New Roman">Times New Roman</option>
+                                                <option value="Courier New">Courier New</option>
+                                                <option value="Impact">Impact</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div id="noSelectionMsg" class="no-selection-msg">
+                                        <p>Select a subtitle from the timeline to edit its style.</p>
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="panel-footer">
+                                    <button id="startGenerateBtn" class="btn btn-primary btn-glow btn-full mb-2">
+                                        <span>✨ Generate Subtitles</span>
                                     </button>
-                                    <button id="burnBtn" class="btn btn-glass">
-                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-                                            stroke="currentColor" stroke-width="2">
-                                            <path d="M12 5v14M5 12h14" />
-                                        </svg>
-                                        <span>Burn Video</span>
+                                    <button id="exportBtn" class="btn btn-glass btn-full disabled" disabled>
+                                        <span>Export Video (Soft Subs)</span>
                                     </button>
-                                    <button id="resetBtn" class="btn btn-danger-glass">
-                                        <span>Reset</span>
+                                    <button id="resetBtn" class="btn btn-danger-glass btn-full mt-2">
+                                        <span>Reset Project</span>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Right: Subtitle Editor -->
-                        <div class="subtitle-column" id="editorPanel">
-                            <div class="subtitle-header">
-                                <h3>Script <span id="subtitleCount" class="badge-count">0</span></h3>
-                                <span id="detectedLanguage" class="badge-lang hidden">DETECTING...</span>
-                            </div>
-
-                            <div class="subtitle-list-wrapper" id="subtitleList">
-                                <div class="empty-state">
-                                    <div class="empty-icon">📝</div>
-                                    <p>Your subtitles will appear here</p>
-                                    <span class="sub-text">Generate to start editing</span>
+                        <!-- Bottom Area: Timeline -->
+                        <div class="editor-bottom-row">
+                            <div class="timeline-container">
+                                <div class="timeline-header">
+                                    <span>Timeline</span>
+                                    <div class="timeline-tools">
+                                        <button id="zoomInBtn" class="tool-btn">+</button>
+                                        <button id="zoomOutBtn" class="tool-btn">-</button>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Processing Overlay Inside Panel -->
-                            <div class="processing-overlay hidden" id="processingOverlay">
-                                <div class="loader-ring"></div>
-                                <p class="loading-text">Transcribing Audio...</p>
+                                <div class="timeline-track-wrapper" id="timelineWrapper">
+                                    <!-- Time Ruler -->
+                                    <div class="time-ruler" id="timeRuler"></div>
+
+                                    <!-- Tracks -->
+                                    <div class="track-container">
+                                        <!-- Video Track (Visual only) -->
+                                        <div class="track video-track">
+                                            <span class="track-label">Video</span>
+                                            <div class="track-content video-strips"></div>
+                                        </div>
+
+                                        <!-- Subtitle Track -->
+                                        <div class="track subtitle-track">
+                                            <span class="track-label">Subtitles</span>
+                                            <div class="track-content" id="subtitleTrack">
+                                                <!-- Segments go here -->
+                                            </div>
+                                        </div>
+
+                                        <!-- Playhead -->
+                                        <div class="playhead" id="playhead"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
