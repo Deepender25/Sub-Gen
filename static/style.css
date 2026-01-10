@@ -352,14 +352,27 @@ body {
     background: rgba(0, 0, 0, 0.5);
 }
 
-/* Video Controls Bar */
+/* Video Controls Bar - Pro Style */
 .video-controls-bar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
-    background: var(--glass-surface);
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
     border-radius: var(--radius-md);
+    margin-top: -8px;
+    /* Pull up closer to video or overlap? Let's keep separate */
+    z-index: 50;
+    gap: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.controls-left,
+.controls-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .control-btn {
@@ -367,24 +380,113 @@ body {
     border: none;
     color: var(--text-main);
     cursor: pointer;
-    font-size: 1.2rem;
     width: 32px;
     height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    transition: background 0.2s;
+    border-radius: 6px;
+    transition: all 0.2s;
 }
 
 .control-btn:hover {
     background: rgba(255, 255, 255, 0.1);
+    color: var(--primary);
 }
 
-.time-display {
-    font-family: monospace;
+.control-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.time-group {
+    font-family: 'Inter', monospace;
     font-size: 0.9rem;
+    color: var(--text-main);
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.separator {
     color: var(--text-muted);
+}
+
+/* Volume */
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100px;
+    /* Expand on hover? */
+    transition: width 0.3s;
+}
+
+.volume-slider {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--text-main);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+/* Fix Overlay Positioning */
+.video-wrapper {
+    position: relative;
+    /* Ensure absolute children are relative to this */
+}
+
+/* Play/Pause Center Overlay */
+.play-pause-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    width: auto;
+    height: auto;
+}
+
+/* Play/Pause Center Overlay moved to earlier block, ensuring style consistency */
+/* Keeping animation */
+.play-pause-overlay.animate {
+    animation: ping-scale 0.5s ease-out forwards;
+    /* Add forwards to ensure end state */
+}
+
+@keyframes ping-scale {
+    0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.5);
+    }
 }
 
 /* Style Panel */
@@ -508,180 +610,274 @@ input[type="color"] {
     margin-top: 8px;
 }
 
-/* Bottom Row: Timeline */
+/* Bottom Row: Timeline Refined */
 .editor-bottom-row {
     flex: 1;
-    /* 1/3 height roughly */
-    background: #0f131a;
-    /* Darker bg for timeline */
+    background: #0b0f19;
+    /* Very dark slate */
     border-top: 1px solid var(--glass-border);
     display: flex;
     flex-direction: column;
-    min-height: 180px;
+    min-height: 250px;
+    overflow: hidden;
+    /* No outer scroll */
 }
 
-.timeline-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-}
-
-.timeline-header {
-    padding: 8px 16px;
-    background: rgba(255, 255, 255, 0.05);
+/* Toolbar */
+.timeline-toolbar {
+    height: 40px;
+    padding: 0 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--glass-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.85rem;
-    color: var(--text-muted);
+    flex-shrink: 0;
 }
 
-.timeline-tools .tool-btn {
+.toolbar-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.timeline-tools button {
     background: transparent;
-    border: 1px solid var(--glass-border);
-    color: var(--text-main);
-    width: 24px;
-    height: 24px;
+    border: none;
+    color: var(--text-muted);
+    padding: 4px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.timeline-track-wrapper {
+.timeline-tools button:hover {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Scroll Area & Container */
+.timeline-scroll-area {
     flex: 1;
-    overflow-x: auto;
-    /* Horizontal scroll */
-    overflow-y: hidden;
+    overflow: auto;
+    /* Both X and Y */
     position: relative;
-    padding: 20px 0;
+    /* Custom Scrollbar styling */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
 
-/* Time Ruler */
-.time-ruler {
-    height: 30px;
-    border-bottom: 1px solid var(--glass-border);
+.timeline-content {
     position: relative;
-    background: rgba(255, 255, 255, 0.02);
+    min-width: 100%;
+    /* Will grow with zoom */
+    min-height: 100%;
+}
+
+/* Ruler Layer */
+.timeline-ruler {
+    height: 32px;
+    background: #0f172a;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    /* Above tracks */
+    cursor: pointer;
+    overflow: hidden;
+    user-select: none;
 }
 
 .ruler-tick {
     position: absolute;
     bottom: 0;
     width: 1px;
-    height: 10px;
-    background: var(--text-muted);
+    background: rgba(255, 255, 255, 0.2);
+    height: 8px;
+    pointer-events: none;
 }
 
-.ruler-tick .tick-label {
+.ruler-tick.major {
+    height: 14px;
+    background: rgba(255, 255, 255, 0.4);
+}
+
+.tick-label {
     position: absolute;
-    top: -18px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    font-family: monospace;
-    white-space: nowrap;
+    top: 2px;
+    left: 4px;
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'Inter', monospace;
 }
 
-/* Tracks */
-.track-container {
-    position: relative;
-    width: 200%;
-    /* Matches time-ruler */
-    padding-top: 10px;
+/* Tracks Layer */
+.timeline-tracks {
+    padding-bottom: 20px;
+    display: flex;
+    flex-direction: column;
 }
 
 .track {
-    height: 60px;
-    position: relative;
-    background: rgba(255, 255, 255, 0.02);
-    margin-bottom: 4px;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    height: 50px;
+    /* Fixed track height */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    background: rgba(0, 0, 0, 0.1);
 }
 
-.track-label {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 5;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    pointer-events: none;
+.track:nth-child(even) {
+    background: rgba(0, 0, 0, 0.2);
 }
 
-.track-content {
-    position: absolute;
-    top: 0;
+.track-header {
+    width: 100px;
+    /* Fixed header width in CSS? No, it scrolls with content? 
+       Actually, standard NLEs separate header from timestamp. 
+       For simplicity here: Stick header to left using sticky */
+    flex-shrink: 0;
+    position: sticky;
     left: 0;
-    right: 0;
-    bottom: 0;
-}
-
-/* Timeline Blocks (Video Strips / Subtitles) */
-.timeline-segment {
-    position: absolute;
-    top: 10px;
-    bottom: 10px;
-    background: var(--primary);
-    /* Default */
-    border-radius: 4px;
-    cursor: pointer;
-    overflow: hidden;
-    white-space: nowrap;
-    font-size: 0.75rem;
-    padding: 0 4px;
+    z-index: 40;
+    background: #0b0f19;
+    border-right: 1px solid var(--glass-border);
     display: flex;
     align-items: center;
-    color: white;
+    padding-left: 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+}
+
+.track-body {
+    flex: 1;
+    position: relative;
+    /* Segment container */
+    overflow: hidden;
+}
+
+/* Playhead Overlay */
+.timeline-playhead-container {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    /* Controlled by JS */
+    width: 0;
+    /* It's a line */
+    z-index: 60;
+    pointer-events: none;
+    /* Let clicks pass through except cap */
+    transform: translateX(0);
+}
+
+.playhead-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -1px;
+    width: 2px;
+    background: var(--danger);
+    box-shadow: 0 0 4px rgba(244, 63, 94, 0.5);
+}
+
+.playhead-cap {
+    position: absolute;
+    top: 0;
+    left: -7px;
+    /* Center over line */
+    width: 14px;
+    height: 14px;
+    background: var(--danger);
+    /* Arrow or Triangle shape */
+    clip-path: polygon(0% 0%, 100% 0%, 50% 100%);
+    cursor: ew-resize;
+    /* Drag cursor */
+    pointer-events: auto;
+    /* Enable dragging */
+    filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
+}
+
+.playhead-cap:hover {
+    transform: scale(1.2);
+}
+
+/* Segments */
+.timeline-segment {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    background: #1e293b;
+    /* Slate 800 */
+    border: 1px solid #334155;
+    /* Slate 700 */
+    border-radius: 6px;
+    cursor: pointer;
+    overflow: visible;
+    /* Allow handles to exceed? No, handles inside */
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    color: #e2e8f0;
+    font-size: 11px;
+    white-space: nowrap;
+    user-select: none;
+    transition: background 0.1s, border-color 0.1s;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: transform 0.1s, box-shadow 0.1s;
 }
 
 .timeline-segment:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    z-index: 2;
-    border-color: white;
+    background: #334155;
+    border-color: #475569;
+    z-index: 10;
 }
 
 .timeline-segment.selected {
-    background: var(--accent-cyan);
-    border: 2px solid white;
-    z-index: 3;
-    box-shadow: 0 0 10px var(--primary-glow);
+    background: #0ea5e9;
+    /* Primary */
+    border-color: #7dd3fc;
+    color: white;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+    z-index: 20;
 }
 
-/* Playhead */
-.playhead {
+/* Resize Handles */
+.segment-handle {
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 2px;
-    background: var(--danger);
-    z-index: 20;
-    pointer-events: none;
-    transform: translateX(0px);
-    /* JS will move this */
-    box-shadow: 0 0 5px var(--danger);
+    width: 8px;
+    cursor: col-resize;
+    z-index: 5;
+    background: transparent;
+    transition: background 0.2s;
 }
 
-.playhead::after {
-    content: '';
-    position: absolute;
-    top: -5px;
-    left: -4px;
-    width: 10px;
-    height: 10px;
-    background: var(--danger);
-    transform: rotate(45deg);
+.segment-handle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.segment-handle.left {
+    left: 0;
+    border-radius: 6px 0 0 6px;
+}
+
+.segment-handle.right {
+    right: 0;
+    border-radius: 0 6px 6px 0;
+}
+
+/* Drag State */
+.timeline-segment.dragging {
+    opacity: 0.8;
+    cursor: grabbing;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    transform: scale(1.02);
 }
 
 /* TEXTAREA RE-DESIGN - Clean & Seamless */

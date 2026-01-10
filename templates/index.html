@@ -76,12 +76,54 @@
                                     </video>
                                     <!-- Dynamic Subtitle Overlay -->
                                     <div id="subtitleOverlay" class="subtitle-overlay hidden"></div>
+
+                                    <!-- Center Play/Pause Overlay -->
+                                    <div id="playPauseOverlay" class="play-pause-overlay">
+                                        <div class="center-icon">
+                                            <svg width="40" height="40" viewBox="0 0 24 24" fill="white">
+                                                <path d="M8 5V19L19 12L8 5Z" />
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <!-- Video Controls (Custom or Native) -->
+                                <!-- Video Controls (Pro Style) -->
                                 <div class="video-controls-bar">
-                                    <button id="playPauseBtn" class="control-btn">⏯</button>
-                                    <span id="timeDisplay" class="time-display">00:00 / 00:00</span>
+                                    <div class="controls-left">
+                                        <button id="playPauseBtn" class="control-btn" title="Play/Pause">
+                                            <svg class="icon-play" viewBox="0 0 24 24">
+                                                <path fill="currentColor" d="M8 5v14l11-7z" />
+                                            </svg>
+                                            <svg class="icon-pause hidden" viewBox="0 0 24 24">
+                                                <path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                                            </svg>
+                                        </button>
+
+                                        <div class="time-group">
+                                            <span id="currentTimeDisplay">00:00</span>
+                                            <span class="separator">/</span>
+                                            <span id="totalTimeDisplay">00:00</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="controls-right">
+                                        <div class="volume-control">
+                                            <button id="muteBtn" class="control-btn" title="Mute">
+                                                <svg viewBox="0 0 24 24">
+                                                    <path fill="currentColor"
+                                                        d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+                                                </svg>
+                                            </button>
+                                            <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1"
+                                                step="0.1" value="1">
+                                        </div>
+                                        <button id="fullscreenBtn" class="control-btn" title="Fullscreen">
+                                            <svg viewBox="0 0 24 24">
+                                                <path fill="currentColor"
+                                                    d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -152,36 +194,60 @@
                         <!-- Bottom Area: Timeline -->
                         <div class="editor-bottom-row">
                             <div class="timeline-container">
-                                <div class="timeline-header">
-                                    <span>Timeline</span>
-                                    <div class="timeline-tools">
-                                        <button id="zoomInBtn" class="tool-btn">+</button>
-                                        <button id="zoomOutBtn" class="tool-btn">-</button>
+                                <div class="timeline-toolbar">
+                                    <div class="toolbar-left">
+                                        <span class="toolbar-label">Timeline</span>
+                                    </div>
+                                    <div class="toolbar-right">
+                                        <div class="zoom-controls">
+                                            <button id="zoomOutBtn" class="tool-btn" title="Zoom Out">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                                </svg>
+                                            </button>
+                                            <button id="zoomInBtn" class="tool-btn" title="Zoom In">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div class="timeline-track-wrapper" id="timelineWrapper">
-                                    <!-- Time Ruler -->
-                                    <div class="time-ruler" id="timeRuler"></div>
-
-                                    <!-- Tracks -->
-                                    <div class="track-container">
-                                        <!-- Video Track (Visual only) -->
-                                        <div class="track video-track">
-                                            <span class="track-label">Video</span>
-                                            <div class="track-content video-strips"></div>
+                                <div class="timeline-scroll-area" id="timelineScrollArea">
+                                    <div class="timeline-content" id="timelineContent">
+                                        <!-- Ruler Layer -->
+                                        <div class="timeline-ruler" id="timeRuler">
+                                            <!-- Ticks generated by JS -->
                                         </div>
 
-                                        <!-- Subtitle Track -->
-                                        <div class="track subtitle-track">
-                                            <span class="track-label">Subtitles</span>
-                                            <div class="track-content" id="subtitleTrack">
-                                                <!-- Segments go here -->
+                                        <!-- Tracks Layer -->
+                                        <div class="timeline-tracks">
+                                            <!-- Video Track -->
+                                            <div class="track video-track">
+                                                <div class="track-header">Video</div>
+                                                <div class="track-body">
+                                                    <div class="video-strip" id="videoStrip"></div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Subtitle Track -->
+                                            <div class="track subtitle-track">
+                                                <div class="track-header">Subs</div>
+                                                <div class="track-body" id="subtitleTrack">
+                                                    <!-- Segments generated by JS -->
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <!-- Playhead -->
-                                        <div class="playhead" id="playhead"></div>
+                                        <!-- Playhead (Overlay) -->
+                                        <div class="timeline-playhead-container" id="playheadContainer">
+                                            <div class="playhead-line"></div>
+                                            <div class="playhead-cap"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
