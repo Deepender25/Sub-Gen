@@ -7,6 +7,8 @@ document.addEventListener('DOMContentLoaded', () => {
         snapThreshold: 10
     };
 
+    const TRACK_HEADER_WIDTH = 100; // Must match CSS .track-header width
+
     // --- DOM Elements ---
     const uploadSection = document.getElementById('uploadSection');
     const editorSection = document.getElementById('editorSection');
@@ -167,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updatePlayheadPosition() {
         const pxPerSec = getPxPerSec();
         const t = mainVideo.currentTime;
-        const left = t * pxPerSec;
+        const left = (t * pxPerSec) + TRACK_HEADER_WIDTH; // Offset for headers
         if (playheadContainer) {
             playheadContainer.style.transform = `translateX(${left}px)`;
 
@@ -252,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.videoDuration) return;
         const pxPerSec = getPxPerSec();
         const totalWidth = state.videoDuration * pxPerSec;
-        const containerWidth = Math.max(timelineScrollArea.clientWidth, totalWidth + 200);
+        const containerWidth = Math.max(timelineScrollArea.clientWidth, totalWidth + 200 + TRACK_HEADER_WIDTH);
         timelineContent.style.minWidth = `${containerWidth}px`;
         timelineContent.style.width = `${containerWidth}px`;
 
@@ -267,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tickIntervalSec = [0.1, 0.5, 1, 5, 10, 30, 60].find(i => i * pxPerSec >= minPxPerTick) || 60;
 
         for (let t = 0; t <= duration; t += tickIntervalSec) {
-            const left = t * pxPerSec;
+            const left = (t * pxPerSec) + TRACK_HEADER_WIDTH; // Offset for headers
             const tick = document.createElement('div');
             tick.className = 'ruler-tick major';
             tick.style.left = `${left}px`;
@@ -286,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (minorT > duration) break;
                     const minorTick = document.createElement('div');
                     minorTick.className = 'ruler-tick';
-                    minorTick.style.left = `${minorT * pxPerSec}px`;
+                    minorTick.style.left = `${(minorT * pxPerSec) + TRACK_HEADER_WIDTH}px`;
                     timeRuler.appendChild(minorTick);
                 }
             }
@@ -446,7 +448,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleScrub(clientX) {
         const rect = timelineContent.getBoundingClientRect();
-        const offsetX = clientX - rect.left;
+        const offsetX = clientX - rect.left - TRACK_HEADER_WIDTH; // Subtract offset
         const t = Math.max(0, Math.min(offsetX / getPxPerSec(), state.videoDuration));
 
         mainVideo.currentTime = t;
