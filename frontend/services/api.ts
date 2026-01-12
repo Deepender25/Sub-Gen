@@ -1,4 +1,4 @@
-import { Subtitle } from '../types';
+import { Subtitle, StyleConfig } from '../types';
 
 const API_BASE = ''; // Proxy will handle the domain
 
@@ -43,11 +43,16 @@ export const generateSubtitles = async (filename: string): Promise<Subtitle[]> =
         id: `sub-${index}-${Date.now()}`,
         startTime: seg.start,
         endTime: seg.end,
-        text: seg.text
+        text: seg.text,
+        words: seg.words?.map((w: any) => ({
+            text: w.word,
+            startTime: w.start,
+            endTime: w.end
+        }))
     }));
 };
 
-export const exportVideo = async (filename: string, subtitles: Subtitle[]): Promise<string> => {
+export const exportVideo = async (filename: string, subtitles: Subtitle[], styleConfig: StyleConfig): Promise<string> => {
     // Convert Subtitle[] back to segments format expected by backend
     const segments = subtitles.map(s => ({
         start: s.startTime,
@@ -60,7 +65,7 @@ export const exportVideo = async (filename: string, subtitles: Subtitle[]): Prom
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ filename, segments }),
+        body: JSON.stringify({ filename, segments, styleConfig }),
     });
 
     if (!response.ok) {

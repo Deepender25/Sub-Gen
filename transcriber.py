@@ -23,7 +23,7 @@ def transcribe_video(video_path, model_size="base"):
     # Use initial_prompt to guide the model to use Latin script for Hindi (Hinglish)
     # and maintain English for English parts.
     prompt = "The following is a transcript in English and Hinglish. Hindi words are spelled efficiently in English script. Namaste, aap kaise hain? Main thik hoon. I am doing good."
-    result = model.transcribe(video_path, initial_prompt=prompt)
+    result = model.transcribe(video_path, initial_prompt=prompt, word_timestamps=True)
     
     return {
         'segments': result['segments'],

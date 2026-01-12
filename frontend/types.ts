@@ -10,6 +10,11 @@ export interface Subtitle {
   startTime: number; // in seconds
   endTime: number;   // in seconds
   text: string;
+  words?: {
+    text: string;
+    startTime: number;
+    endTime: number;
+  }[];
 }
 
 export interface StyleConfig {

@@ -27,7 +27,9 @@ const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
+  const [videoSize, setVideoSize] = useState({ width: 0, height: 0 }); // New State for Aspect Ratio
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -137,6 +139,10 @@ const App: React.FC = () => {
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      setVideoSize({
+        width: videoRef.current.videoWidth,
+        height: videoRef.current.videoHeight
+      });
     }
   };
 
@@ -167,7 +173,7 @@ const App: React.FC = () => {
   const handleExport = async () => {
     if (!currentFilename) return;
     try {
-      const downloadUrl = await exportVideo(currentFilename, subtitles);
+      const downloadUrl = await exportVideo(currentFilename, subtitles, styleConfig); // Pass visual style
       window.open(downloadUrl, '_blank');
     } catch (error) {
       console.error("Export failed:", error);
@@ -280,7 +286,17 @@ const App: React.FC = () => {
               <div className="col-span-9 row-span-4 relative flex flex-col min-h-0">
                 <div className="relative w-full h-full border-2 border-dashed border-zinc-700/30 rounded-3xl bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden shadow-2xl transition-all hover:border-zinc-600/50 hover:bg-black/30 group">
 
-                  <div className="relative w-full h-full flex items-center justify-center rounded-2xl overflow-hidden bg-black/40 ring-1 ring-white/5">
+
+
+                  {/* Constrained Aspect Ratio Container */}
+                  <div
+                    className="relative flex items-center justify-center rounded-2xl overflow-hidden bg-black ring-1 ring-white/5 shadow-2xl"
+                    style={{
+                      aspectRatio: videoSize.width && videoSize.height ? `${videoSize.width} / ${videoSize.height}` : '16 / 9',
+                      maxHeight: '100%',
+                      maxWidth: '100%'
+                    }}
+                  >
                     <video
                       ref={videoRef}
                       src={videoUrl}
@@ -299,6 +315,39 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* Progress Bar Overlay */}
+                    <div className="absolute bottom-1 left-0 right-0 z-50 group/progress h-4 flex items-end cursor-pointer">
+                      {/* Hit Area Container - makes it easier to hover without pixel precision */}
+                      <div
+                        className="w-full relative py-2" // Vertical padding extends hit area
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const percent = (e.clientX - rect.left) / rect.width;
+                          if (duration > 0) seekTo(percent * duration);
+                        }}
+                      >
+                        {/* Background Track */}
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 group-hover/progress:h-1 bg-white/20 transition-all duration-200 ease-out backdrop-blur-sm" />
+
+                        {/* Current Progress Line */}
+                        <div
+                          className="absolute bottom-0 left-0 h-0.5 group-hover/progress:h-1 bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-200 ease-out"
+                          style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+                        >
+                          {/* Handle / Thumb */}
+                          <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3.5 h-3.5 bg-white rounded-full opacity-0 scale-50 group-hover/progress:opacity-100 group-hover/progress:scale-100 transition-all duration-200 ease-out shadow-lg" />
+                        </div>
+                      </div>
+
+                      {/* Time Details - Hover tooltip */}
+                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-medium text-white opacity-0 group-hover/progress:opacity-100 transition-opacity pointer-events-none">
+                        <span>{new Date(currentTime * 1000).toISOString().substr(14, 5)}</span>
+                        <span className="mx-1 text-white/50">/</span>
+                        <span>{new Date(duration * 1000).toISOString().substr(14, 5)}</span>
+                      </div>
+                    </div>
 
                     {/* Subtitle Overlay */}
                     {activeSubtitle && (
@@ -319,13 +368,20 @@ const App: React.FC = () => {
                             textShadow: '0 2px 4px rgba(0,0,0,0.5)'
                           }}
                         >
-                          {activeSubtitle.text}
+                          {(() => {
+                            if (activeSubtitle.words && activeSubtitle.words.length > 0) {
+                              const currentWord = activeSubtitle.words.find(w => currentTime >= w.startTime && currentTime <= w.endTime);
+                              return currentWord ? currentWord.text : activeSubtitle.text;
+                            }
+                            return activeSubtitle.text;
+                          })()}
                         </span>
                       </div>
                     )}
                   </div>
                 </div>
               </div>
+
 
               {/* Style Editor: Columns 10-12 (Right) */}
               <div className="col-span-3 row-span-4 min-h-0">

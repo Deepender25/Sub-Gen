@@ -124,7 +124,10 @@ def burn_video():
     output_filename = f"subtitled_{filename}"
     output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
     
-    success = video_editor.burn_subtitles(input_path, srt_path, output_path)
+    # Get style config (optional)
+    style_config = data.get('styleConfig')
+    
+    success = video_editor.burn_subtitles(input_path, srt_path, output_path, style_config)
     
     if success:
         return jsonify({
