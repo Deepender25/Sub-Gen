@@ -27,6 +27,7 @@ interface TimelineProps {
 interface ExtendedTimelineProps extends Omit<TimelineProps, 'onDeleteSubtitle'> {
     onDeleteSubtitle: (id: string) => void;
     onSubtitleTimeUpdate?: (id: string, startTime: number, endTime: number) => void;
+    videoRef: React.RefObject<HTMLVideoElement>;
 }
 
 const Timeline: React.FC<ExtendedTimelineProps> = ({
@@ -36,14 +37,16 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
     onSubtitleClick,
     onDeleteSubtitle,
     onUpdateSubtitle,
-    onSubtitleTimeUpdate
+    onSubtitleTimeUpdate,
+    videoRef
 }) => {
     const safeDuration = duration || 1;
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollAreaRef = useRef<HTMLDivElement>(null);
+    const playheadRef = useRef<HTMLDivElement>(null); // Ref for direct DOM manipulation
 
-    // Configuration (similar to old script.js)
-    const [zoom, setZoom] = useState(1); // 1 = 100px/s (base)
+    // Configuration
+    const [zoom, setZoom] = useState(0.5); // Started zoomed out (50px/sec)
     const BASE_PX_PER_SEC = 100;
 
     // State for dragging
@@ -142,6 +145,38 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
         };
     }, [isDragging, dragType, dragTargetId, dragStartX, dragSnapshot]);
 
+    // Animation Loop for Smooth Playhead & Auto-scroll
+    useEffect(() => {
+        let animationFrameId: number;
+
+        const loop = () => {
+            if (videoRef.current && playheadRef.current) {
+                const t = videoRef.current.currentTime;
+                const pxPerSec = getPxPerSec();
+                const pos = t * pxPerSec;
+
+                // Update Playhead directly
+                playheadRef.current.style.left = `${pos}px`;
+
+                // Auto-scroll if playing (and not dragging)
+                if (!videoRef.current.paused && !isDragging && scrollAreaRef.current) {
+                    const containerWidth = scrollAreaRef.current.clientWidth;
+                    const scrollLeft = scrollAreaRef.current.scrollLeft;
+
+                    // Scroll if playhead is past 80% of view
+                    if (pos - scrollLeft > containerWidth * 0.8) {
+                        scrollAreaRef.current.scrollLeft = pos - containerWidth * 0.2;
+                    }
+                    // Or simply keep it in view?. The legacy app did: if (left > scrollLeft + width - 50) scroll...
+                }
+            }
+            animationFrameId = requestAnimationFrame(loop);
+        };
+
+        loop();
+        return () => cancelAnimationFrame(animationFrameId);
+    }, [zoom, isDragging, videoRef]); // dependencies
+
     // Width calculation
     const totalWidth = safeDuration * getPxPerSec();
 
@@ -164,7 +199,7 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
 
             <div
                 ref={scrollAreaRef}
-                className="flex-1 relative overflow-x-auto overflow-y-hidden select-none custom-scrollbar"
+                className="flex-1 relative overflow-x-auto overflow-y-hidden select-none custom-scrollbar pt-8"
                 onMouseDown={(e) => {
                     // Basic background click to scrub
                     if (e.target === scrollAreaRef.current || (e.target as HTMLElement).classList.contains('timeline-bg')) {
@@ -187,7 +222,7 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
                                     className={`absolute bottom-0 border-l ${showMajor ? 'h-3 border-zinc-500' : 'h-1.5 border-zinc-700'}`}
                                     style={{ left: `${sec * getPxPerSec()}px` }}
                                 >
-                                    {showMajor && <span className="absolute -top-4 left-1 text-[9px] text-zinc-500">{formatTime(sec)}</span>}
+                                    {showMajor && <span className="absolute -top-4 left-1 text-[9px] text-zinc-300 font-medium">{formatTime(sec)}</span>}
                                 </div>
                             );
                         })}
@@ -195,8 +230,9 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
 
                     {/* Playhead */}
                     <div
-                        className="absolute top-0 bottom-0 w-[1px] bg-primary z-30 pointer-events-none transition-none shadow-[0_0_10px_#6366f1]"
-                        style={{ left: `${currentTime * getPxPerSec()}px` }}
+                        ref={playheadRef}
+                        className="absolute top-0 bottom-0 w-[1px] bg-primary z-30 pointer-events-none shadow-[0_0_10px_#6366f1]"
+                        style={{ left: `${currentTime * getPxPerSec()}px` }} // Initial render fallback
                     >
                         <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-primary transform rotate-45 border border-white"></div>
                     </div>

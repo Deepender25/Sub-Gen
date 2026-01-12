@@ -294,6 +294,7 @@ const App: React.FC = () => {
                   onDeleteSubtitle={deleteSubtitle}
                   onUpdateSubtitle={updateSubtitleText}
                   onSubtitleTimeUpdate={updateSubtitleTime}
+                  videoRef={videoRef}
                 />
               </div>
             </div>
