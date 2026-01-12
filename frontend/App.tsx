@@ -5,13 +5,24 @@ import LoadingScreen from './components/LoadingScreen';
 import StyleEditor from './components/StyleEditor';
 import Timeline from './components/Timeline';
 import { uploadVideo, generateSubtitles, exportVideo } from './services/api';
-import { PlayIcon, WandIcon } from './components/Icons';
+import { useHistory } from './hooks/useHistory';
+import { PlayIcon, WandIcon, UndoIcon, RedoIcon } from './components/Icons';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.UPLOAD);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [subtitles, setSubtitles] = useState<Subtitle[]>([]);
+  // Replaced simple state with History hook
+  const {
+    state: subtitles,
+    set: setSubtitles,
+    undo: undoSubtitles,
+    redo: redoSubtitles,
+    canUndo,
+    canRedo,
+    init: initSubtitles
+  } = useHistory<Subtitle[]>([]);
+
   const [styleConfig, setStyleConfig] = useState<StyleConfig>(DEFAULT_STYLE);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -33,10 +44,28 @@ const App: React.FC = () => {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName.toLowerCase();
+      const isInputActive = activeTag === 'input' || activeTag === 'textarea';
+
+      // Undo/Redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z)
+      if ((e.ctrlKey || e.metaKey) && appState === AppState.EDITOR) {
+        if (e.code === 'KeyZ') {
+          if (e.shiftKey) {
+            e.preventDefault();
+            redoSubtitles();
+          } else {
+            e.preventDefault();
+            undoSubtitles();
+          }
+        } else if (e.code === 'KeyY') {
+          e.preventDefault();
+          redoSubtitles();
+        }
+      }
+
       if (e.code === 'Space') {
         // Prevent default only if not typing
-        const activeTag = document.activeElement?.tagName.toLowerCase();
-        if (activeTag === 'input' || activeTag === 'textarea') return;
+        if (isInputActive) return;
 
         e.preventDefault();
         togglePlay();
@@ -49,7 +78,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPlaying]); // Re-bind when isPlaying changes so togglePlay uses current state or use ref for playing state.
+  }, [isPlaying, appState, undoSubtitles, redoSubtitles]);
   // Actually, togglePlay depends on isPlaying state, so we either need to add isPlaying to dependency 
   // or use functional state update in togglePlay if possible (but we call videoRef.current functions).
   // Better: separate useEffect for keydown or just add isPlaying to deps properly.
@@ -77,9 +106,10 @@ const App: React.FC = () => {
       setCurrentFilename(filename);
 
       // 2. Generate Subtitles
+      // 2. Generate Subtitles
       const generatedSubs = await generateSubtitles(filename);
 
-      setSubtitles(generatedSubs);
+      initSubtitles(generatedSubs); // Initialize history with generated subs
       setAppState(AppState.EDITOR);
     } catch (error) {
       console.error("Error processing video:", error);
@@ -213,7 +243,25 @@ const App: React.FC = () => {
                 </div>
                 <span className="font-bold text-xl tracking-tight text-white/90">CineScript AI</span>
               </div>
-              <div className="flex gap-4">
+              <div className="flex gap-4 items-center">
+                <div className="flex items-center gap-1 mr-4 bg-white/5 rounded-lg p-1 border border-white/5">
+                  <button
+                    onClick={undoSubtitles}
+                    disabled={!canUndo}
+                    className={`p-2 rounded-md transition-colors ${canUndo ? 'hover:bg-white/10 text-zinc-200' : 'text-zinc-600 cursor-not-allowed'}`}
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <UndoIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={redoSubtitles}
+                    disabled={!canRedo}
+                    className={`p-2 rounded-md transition-colors ${canRedo ? 'hover:bg-white/10 text-zinc-200' : 'text-zinc-600 cursor-not-allowed'}`}
+                    title="Redo (Ctrl+Shift+Z)"
+                  >
+                    <RedoIcon className="w-4 h-4" />
+                  </button>
+                </div>
                 <button className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">
                   Discard
                 </button>
