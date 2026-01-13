@@ -73,6 +73,26 @@ const App: React.FC = () => {
     };
   }, [isPlaying, appState, undoSubtitles, redoSubtitles]);
 
+  // --- High Precision Timer ---
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const tick = () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        setCurrentTime(videoRef.current.currentTime);
+        animationFrameId = requestAnimationFrame(tick);
+      }
+    };
+
+    if (isPlaying) {
+      animationFrameId = requestAnimationFrame(tick);
+    }
+
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [isPlaying]);
+
   useEffect(() => {
     return () => {
       if (videoUrl) URL.revokeObjectURL(videoUrl);
@@ -170,11 +190,24 @@ const App: React.FC = () => {
       return activeSubtitle.text; // Fallback
     }
 
-    const currentWordIndex = activeSubtitle.words.findIndex(
+    // 1. Try to find the word currently being spoken
+    let currentWordIndex = activeSubtitle.words.findIndex(
       w => currentTime >= w.startTime && currentTime <= w.endTime
     );
 
-    if (currentWordIndex === -1) return activeSubtitle.text;
+    // 2. If inside a gap (no word is "active"), find the LAST word that passed
+    //    This creates the "sticky" effect so it doesn't flash the whole sentence
+    if (currentWordIndex === -1) {
+      // Find the last word that has started
+      for (let i = activeSubtitle.words.length - 1; i >= 0; i--) {
+        if (currentTime >= activeSubtitle.words[i].startTime) {
+          currentWordIndex = i;
+          break;
+        }
+      }
+      // If still -1 (before first word), default to 0
+      if (currentWordIndex === -1) currentWordIndex = 0;
+    }
 
     if (styleConfig.displayMode === 'word') {
       return activeSubtitle.words[currentWordIndex].text;
@@ -182,13 +215,46 @@ const App: React.FC = () => {
 
     if (styleConfig.displayMode === 'phrase') {
       const wordsPerLine = styleConfig.wordsPerLine || 3;
-      // Calculate chunks
-      // Find which chunk the current word belongs to
-      const chunkIndex = Math.floor(currentWordIndex / wordsPerLine);
-      const start = chunkIndex * wordsPerLine;
-      const end = start + wordsPerLine;
-      const chunk = activeSubtitle.words.slice(start, end);
-      return chunk.map(w => w.text).join(' ');
+      const allWords = activeSubtitle.words;
+
+      // Smart Chunking Algorithm
+      // 1. Identify natural break points (punctuation)
+      // 2. Group words while respecting max length (wordsPerLine)
+
+      let currentChunk: typeof allWords = [];
+      let foundChunk = false;
+      let wordCount = 0;
+
+      for (let i = 0; i < allWords.length; i++) {
+        const word = allWords[i];
+        currentChunk.push(word);
+        wordCount++;
+
+        // Define break condition:
+        // - Reached max length
+        // - OR Hit punctuation (.,?!), unless it's the very start of a chunk (rare)
+        const hasPunctuation = /[.?!,]/.test(word.text);
+        const shouldBreak = wordCount >= wordsPerLine || (hasPunctuation && wordCount > 1);
+
+        if (shouldBreak || i === allWords.length - 1) {
+          // Check if our target index is in THIS chunk
+          // We need to know if the "active word" (currentWordIndex) is inside the range of this chunk
+          // The range of this chunk is from (i - wordCount + 1) to i
+          const startIndex = i - wordCount + 1;
+          const endIndex = i;
+
+          if (currentWordIndex >= startIndex && currentWordIndex <= endIndex) {
+            return currentChunk.map(w => w.text).join(' ');
+          }
+
+          // Prepare for next chunk
+          currentChunk = [];
+          wordCount = 0;
+        }
+      }
+
+      // Fallback (safety)
+      return activeSubtitle.text;
     }
 
     return activeSubtitle.text;
