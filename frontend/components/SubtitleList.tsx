@@ -15,9 +15,12 @@ const SubtitleList: React.FC<SubtitleListProps> = ({
     onUpdateSubtitle
 }) => {
     const activeRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+    const [isHovering, setIsHovering] = React.useState(false);
 
     useEffect(() => {
-        // Scroll active subtitle into view
+        // Scroll active subtitle into view ONLY if not hovering
+        if (isHovering) return;
+
         const activeSub = subtitles.find(s => currentTime >= s.startTime && currentTime <= s.endTime);
         if (activeSub && activeRefs.current[activeSub.id]) {
             activeRefs.current[activeSub.id]?.scrollIntoView({
@@ -25,7 +28,7 @@ const SubtitleList: React.FC<SubtitleListProps> = ({
                 block: 'center'
             });
         }
-    }, [currentTime, subtitles]);
+    }, [currentTime, subtitles, isHovering]);
 
     return (
         <div className="h-full flex flex-col bg-black/20 backdrop-blur-md rounded-3xl border border-white/5 overflow-hidden">
@@ -34,7 +37,11 @@ const SubtitleList: React.FC<SubtitleListProps> = ({
                 <p className="text-xs text-zinc-400">Click to seek • Edit text freely</p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-2">
+            <div
+                className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-2"
+                onMouseEnter={() => setIsHovering(true)}
+                onMouseLeave={() => setIsHovering(false)}
+            >
                 {subtitles.map((sub) => {
                     const isActive = currentTime >= sub.startTime && currentTime <= sub.endTime;
 
@@ -43,17 +50,17 @@ const SubtitleList: React.FC<SubtitleListProps> = ({
                             key={sub.id}
                             ref={el => activeRefs.current[sub.id] = el}
                             className={`p-3 rounded-xl transition-all duration-300 border ${isActive
-                                    ? 'bg-primary/10 border-primary/50 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.02]'
-                                    : 'bg-black/20 border-white/5 hover:bg-white/5 hover:border-white/10'
+                                ? 'bg-primary/10 border-primary/50 shadow-[0_0_15px_rgba(99,102,241,0.15)] scale-[1.02]'
+                                : 'bg-black/20 border-white/5 hover:bg-white/5 hover:border-white/10'
                                 }`}
                         >
                             <div
                                 className="flex justify-between items-center mb-2 cursor-pointer"
                                 onClick={() => onSubtitleClick(sub.startTime)}
                             >
-                                <span className={`text-xs font-mono px-2 py-0.5 rounded ${isActive ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-400'
+                                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border border-white/10 ${isActive ? 'bg-primary text-white font-bold tracking-wide' : 'bg-zinc-800 text-zinc-400'
                                     }`}>
-                                    {new Date(sub.startTime * 1000).toISOString().substr(14, 5)}
+                                    {new Date(sub.startTime * 1000).toISOString().substr(14, 5)} - {new Date(sub.endTime * 1000).toISOString().substr(14, 5)}
                                 </span>
                                 {isActive && (
                                     <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -63,10 +70,11 @@ const SubtitleList: React.FC<SubtitleListProps> = ({
                             <textarea
                                 value={sub.text}
                                 onChange={(e) => onUpdateSubtitle(sub.id, e.target.value)}
-                                className={`w-full bg-transparent resize-none outline-none text-sm leading-relaxed transition-colors ${isActive ? 'text-white font-medium' : 'text-zinc-400 focus:text-zinc-200'
+                                className={`w-full bg-transparent resize-none outline-none text-sm leading-relaxed transition-all p-2 rounded-lg border border-transparent hover:border-white/10 focus:border-primary/50 focus:bg-white/5 ${isActive ? 'text-white font-medium' : 'text-zinc-400 focus:text-zinc-200'
                                     }`}
                                 rows={Math.max(2, Math.ceil(sub.text.length / 30))}
                                 spellCheck={false}
+                                placeholder="Edit subtitle text..."
                             />
                         </div>
                     );
