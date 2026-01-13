@@ -25,6 +25,8 @@ export interface StyleConfig {
   backgroundOpacity: number;
   yAlign: number; // 0 to 100 (percentage from top)
   fontWeight: string;
+  displayMode: 'word' | 'phrase' | 'sentence';
+  wordsPerLine?: number;
 }
 
 export const DEFAULT_STYLE: StyleConfig = {
@@ -34,5 +36,7 @@ export const DEFAULT_STYLE: StyleConfig = {
   backgroundColor: '#000000',
   backgroundOpacity: 0.6,
   yAlign: 85,
-  fontWeight: '600'
+  fontWeight: '600',
+  displayMode: 'word',
+  wordsPerLine: 3
 };

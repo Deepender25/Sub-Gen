@@ -3,6 +3,7 @@ import { AppState, Subtitle, StyleConfig, DEFAULT_STYLE } from './types';
 import UploadZone from './components/UploadZone';
 import LoadingScreen from './components/LoadingScreen';
 import StyleEditor from './components/StyleEditor';
+import SubtitleList from './components/SubtitleList'; // New Component
 import Timeline from './components/Timeline';
 import { uploadVideo, generateSubtitles, exportVideo } from './services/api';
 import { useHistory } from './hooks/useHistory';
@@ -12,7 +13,7 @@ const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.UPLOAD);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  // Replaced simple state with History hook
+
   const {
     state: subtitles,
     set: setSubtitles,
@@ -29,18 +30,17 @@ const App: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
-  const [videoSize, setVideoSize] = useState({ width: 0, height: 0 }); // New State for Aspect Ratio
+  const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
 
-  // Cursor Reactive Animation
+  // --- Effects ---
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (cursorRef.current) {
         const x = e.clientX;
         const y = e.clientY;
-        // Using a radial gradient that moves with the cursor
         cursorRef.current.style.background = `radial-gradient(600px circle at ${x}px ${y}px, rgba(99, 102, 241, 0.08), transparent 40%)`;
       }
     };
@@ -49,26 +49,17 @@ const App: React.FC = () => {
       const activeTag = document.activeElement?.tagName.toLowerCase();
       const isInputActive = activeTag === 'input' || activeTag === 'textarea';
 
-      // Undo/Redo (Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z)
       if ((e.ctrlKey || e.metaKey) && appState === AppState.EDITOR) {
         if (e.code === 'KeyZ') {
-          if (e.shiftKey) {
-            e.preventDefault();
-            redoSubtitles();
-          } else {
-            e.preventDefault();
-            undoSubtitles();
-          }
+          e.preventDefault();
+          e.shiftKey ? redoSubtitles() : undoSubtitles();
         } else if (e.code === 'KeyY') {
           e.preventDefault();
           redoSubtitles();
         }
       }
 
-      if (e.code === 'Space') {
-        // Prevent default only if not typing
-        if (isInputActive) return;
-
+      if (e.code === 'Space' && !isInputActive) {
         e.preventDefault();
         togglePlay();
       }
@@ -81,18 +72,14 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isPlaying, appState, undoSubtitles, redoSubtitles]);
-  // Actually, togglePlay depends on isPlaying state, so we either need to add isPlaying to dependency 
-  // or use functional state update in togglePlay if possible (but we call videoRef.current functions).
-  // Better: separate useEffect for keydown or just add isPlaying to deps properly.
 
-
-  // Clean up URL object
   useEffect(() => {
     return () => {
       if (videoUrl) URL.revokeObjectURL(videoUrl);
     };
   }, [videoUrl]);
 
+  // --- Handlers ---
   const handleFileSelect = (file: File) => {
     setVideoFile(file);
     setVideoUrl(URL.createObjectURL(file));
@@ -103,15 +90,10 @@ const App: React.FC = () => {
     if (!videoFile) return;
     setAppState(AppState.GENERATING);
     try {
-      // 1. Upload Video
       const filename = await uploadVideo(videoFile);
       setCurrentFilename(filename);
-
-      // 2. Generate Subtitles
-      // 2. Generate Subtitles
       const generatedSubs = await generateSubtitles(filename);
-
-      initSubtitles(generatedSubs); // Initialize history with generated subs
+      initSubtitles(generatedSubs);
       setAppState(AppState.EDITOR);
     } catch (error) {
       console.error("Error processing video:", error);
@@ -122,11 +104,7 @@ const App: React.FC = () => {
 
   const togglePlay = () => {
     if (!videoRef.current) return;
-    if (isPlaying) {
-      videoRef.current.pause();
-    } else {
-      videoRef.current.play();
-    }
+    isPlaying ? videoRef.current.pause() : videoRef.current.play();
     setIsPlaying(!isPlaying);
   };
 
@@ -159,21 +137,16 @@ const App: React.FC = () => {
 
   const updateSubtitleTime = (id: string, startTime: number, endTime: number) => {
     setSubtitles(prev => prev.map(s => s.id === id ? { ...s, startTime, endTime } : s));
-  };
+  }
 
   const deleteSubtitle = (id: string) => {
     setSubtitles(prev => prev.filter(s => s.id !== id));
   };
 
-  // Helper to find active subtitle
-  const activeSubtitle = subtitles.find(
-    s => currentTime >= s.startTime && currentTime <= s.endTime
-  );
-
   const handleExport = async () => {
     if (!currentFilename) return;
     try {
-      const downloadUrl = await exportVideo(currentFilename, subtitles, styleConfig); // Pass visual style
+      const downloadUrl = await exportVideo(currentFilename, subtitles, styleConfig);
       window.open(downloadUrl, '_blank');
     } catch (error) {
       console.error("Export failed:", error);
@@ -181,178 +154,145 @@ const App: React.FC = () => {
     }
   };
 
+  // --- render logic ---
+  const activeSubtitle = subtitles.find(
+    s => currentTime >= s.startTime && currentTime <= s.endTime
+  );
+
+  const getDisplayedText = () => {
+    if (!activeSubtitle) return null;
+
+    if (styleConfig.displayMode === 'sentence') {
+      return activeSubtitle.text;
+    }
+
+    if (!activeSubtitle.words || activeSubtitle.words.length === 0) {
+      return activeSubtitle.text; // Fallback
+    }
+
+    const currentWordIndex = activeSubtitle.words.findIndex(
+      w => currentTime >= w.startTime && currentTime <= w.endTime
+    );
+
+    if (currentWordIndex === -1) return activeSubtitle.text;
+
+    if (styleConfig.displayMode === 'word') {
+      return activeSubtitle.words[currentWordIndex].text;
+    }
+
+    if (styleConfig.displayMode === 'phrase') {
+      const wordsPerLine = styleConfig.wordsPerLine || 3;
+      // Calculate chunks
+      // Find which chunk the current word belongs to
+      const chunkIndex = Math.floor(currentWordIndex / wordsPerLine);
+      const start = chunkIndex * wordsPerLine;
+      const end = start + wordsPerLine;
+      const chunk = activeSubtitle.words.slice(start, end);
+      return chunk.map(w => w.text).join(' ');
+    }
+
+    return activeSubtitle.text;
+  };
+
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-primary selection:text-white overflow-hidden relative">
+    <div className="h-screen bg-[#050505] text-white font-sans selection:bg-primary selection:text-white overflow-hidden relative flex flex-col">
 
-      {/* --- SOPHISTICATED BACKGROUND SYSTEM --- */}
-
-      {/* 1. Base Grid Pattern */}
+      {/* --- BACKGROUND --- */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
-
-      {/* 2. Top Spotlight Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-[#09090b00] to-transparent pointer-events-none blur-3xl" />
-
-      {/* 3. Dynamic Animated Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none animate-pulse-slow" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none animate-pulse-slow [animation-delay:2s]" />
-
-      {/* 4. Reactive Cursor Spotlight (New) */}
       <div ref={cursorRef} className="fixed inset-0 pointer-events-none z-0 transition-opacity duration-300" />
-
-      {/* 5. Film Grain Texture Overlay */}
       <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
 
       {/* --- APP CONTENT --- */}
-      <div className="relative z-10 h-full flex flex-col">
-        {/* STATE: UPLOAD */}
-        {appState === AppState.UPLOAD && (
-          <UploadZone onFileSelect={handleFileSelect} />
-        )}
+      <div className="relative z-10 flex-1 flex flex-col min-h-0">
 
-        {/* STATE: PREVIEW */}
-        {appState === AppState.PREVIEW && videoUrl && (
-          <div className="flex flex-col items-center justify-center h-screen space-y-8 bg-transparent relative z-10 animate-in fade-in zoom-in-95 duration-500">
-
-            <div className="relative group w-full max-w-4xl aspect-video rounded-3xl border-2 border-dashed border-white/10 bg-black/40 backdrop-blur-md overflow-hidden p-2 shadow-2xl ring-1 ring-white/5">
-              <video src={videoUrl} className="w-full h-full object-contain rounded-2xl" controls />
-            </div>
-
-            <div className="flex items-center gap-4 z-10">
-              <button
-                onClick={() => setAppState(AppState.UPLOAD)}
-                className="px-6 py-3 rounded-xl text-zinc-400 hover:text-white font-medium transition-colors hover:bg-white/5 border border-transparent hover:border-white/10"
-              >
-                Choose Different Video
-              </button>
-              <button
-                onClick={handleGenerate}
-                className="group flex items-center gap-2 px-8 py-3 bg-white text-black rounded-xl font-bold hover:bg-zinc-200 transition-all hover:scale-105 shadow-[0_0_30px_rgba(255,255,255,0.15)]"
-              >
-                <WandIcon className="w-5 h-5 transition-transform group-hover:rotate-12" />
-                Generate Subtitles
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STATE: GENERATING */}
-        {appState === AppState.GENERATING && <LoadingScreen />}
-
-        {/* STATE: EDITOR */}
-        {appState === AppState.EDITOR && videoUrl && (
-          <div className="h-screen flex flex-col relative z-10 animate-in slide-in-from-bottom-4 duration-700">
-            {/* Top Navigation / Header */}
-            <div className="h-16 border-b border-white/5 bg-black/10 backdrop-blur-md flex items-center justify-between px-8 z-30 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
-                  <WandIcon className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-bold text-xl tracking-tight text-white/90">CineScript AI</span>
+        {/* HEADER */}
+        {(appState === AppState.EDITOR || appState === AppState.PREVIEW) && (
+          <div className="h-16 border-b border-white/5 bg-black/10 backdrop-blur-md flex items-center justify-between px-6 z-30 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg shadow-primary/20">
+                <WandIcon className="w-4 h-4 text-white" />
               </div>
+              <span className="font-bold text-xl tracking-tight text-white/90">Cinescript AI</span>
+            </div>
+
+            {appState === AppState.EDITOR && (
               <div className="flex gap-4 items-center">
                 <div className="flex items-center gap-1 mr-4 bg-white/5 rounded-lg p-1 border border-white/5">
-                  <button
-                    onClick={undoSubtitles}
-                    disabled={!canUndo}
-                    className={`p-2 rounded-md transition-colors ${canUndo ? 'hover:bg-white/10 text-zinc-200' : 'text-zinc-600 cursor-not-allowed'}`}
-                    title="Undo (Ctrl+Z)"
-                  >
+                  <button onClick={undoSubtitles} disabled={!canUndo} className={`p-2 rounded-md transition-colors ${canUndo ? 'hover:bg-white/10 text-zinc-200' : 'text-zinc-600 cursor-not-allowed'}`}>
                     <UndoIcon className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={redoSubtitles}
-                    disabled={!canRedo}
-                    className={`p-2 rounded-md transition-colors ${canRedo ? 'hover:bg-white/10 text-zinc-200' : 'text-zinc-600 cursor-not-allowed'}`}
-                    title="Redo (Ctrl+Shift+Z)"
-                  >
+                  <button onClick={redoSubtitles} disabled={!canRedo} className={`p-2 rounded-md transition-colors ${canRedo ? 'hover:bg-white/10 text-zinc-200' : 'text-zinc-600 cursor-not-allowed'}`}>
                     <RedoIcon className="w-4 h-4" />
                   </button>
                 </div>
-                <button className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">
-                  Discard
-                </button>
-                <button
-                  onClick={handleExport}
-                  className="px-5 py-2 text-sm font-bold bg-white text-black rounded-lg hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)]">
-                  Export Video
-                </button>
+                <button onClick={() => setAppState(AppState.UPLOAD)} className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors">Disacrd</button>
+                <button onClick={handleExport} className="px-5 py-2 text-sm font-bold bg-white text-black rounded-lg hover:bg-zinc-200 shadow-lg">Export Video</button>
               </div>
-            </div>
+            )}
+          </div>
+        )}
 
-            {/* Main Content: Spaced Grid Layout */}
-            <div className="flex-1 grid grid-cols-12 grid-rows-6 gap-6 p-6 overflow-hidden">
+        {/* EDITOR LAYOUT */}
+        {appState === AppState.EDITOR && videoUrl ? (
+          <>
+            <div className="flex-1 flex overflow-hidden">
+              {/* LEFT PANEL: SUBTITLE LIST */}
+              <div className="w-80 border-r border-white/5 bg-black/20 backdrop-blur-sm p-4 flex flex-col min-w-[320px]">
+                <SubtitleList
+                  subtitles={subtitles}
+                  currentTime={currentTime}
+                  onSubtitleClick={seekTo}
+                  onUpdateSubtitle={updateSubtitleText}
+                />
+              </div>
 
-              {/* Video Player: Columns 1-9 (Left) */}
-              <div className="col-span-9 row-span-4 relative flex flex-col min-h-0">
-                <div className="relative w-full h-full border-2 border-dashed border-zinc-700/30 rounded-3xl bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 overflow-hidden shadow-2xl transition-all hover:border-zinc-600/50 hover:bg-black/30 group">
+              {/* CENTER PANEL: VIDEO PLAYER */}
+              <div className="flex-1 relative bg-black/40 flex flex-col p-6 min-w-0">
+                <div className="flex-1 relative flex items-center justify-center rounded-3xl overflow-hidden border border-white/5 shadow-2xl bg-[#0a0a0a]">
 
+                  {/* Ambient Background Blur */}
+                  <div className="absolute inset-0 z-0 overflow-hidden opacity-30 pointer-events-none">
+                    <video
+                      src={videoUrl}
+                      className="w-full h-full object-cover blur-[80px] scale-110"
+                      ref={(el) => {
+                        // Sync background video with main video if possible, strictly visual
+                        if (el && videoRef.current) {
+                          el.currentTime = videoRef.current.currentTime;
+                        }
+                      }}
+                      muted
+                    />
+                  </div>
 
-
-                  {/* Constrained Aspect Ratio Container */}
-                  <div
-                    className="relative flex items-center justify-center rounded-2xl overflow-hidden bg-black ring-1 ring-white/5 shadow-2xl"
-                    style={{
-                      aspectRatio: videoSize.width && videoSize.height ? `${videoSize.width} / ${videoSize.height}` : '16 / 9',
-                      maxHeight: '100%',
-                      maxWidth: '100%'
-                    }}
-                  >
+                  {/* Main Video Container */}
+                  <div className="relative z-10 max-h-full max-w-full aspect-[var(--aspect-ratio)] shadow-2xl"
+                    style={{ '--aspect-ratio': videoSize.width && videoSize.height ? `${videoSize.width}/${videoSize.height}` : '16/9' } as any}>
                     <video
                       ref={videoRef}
                       src={videoUrl}
-                      className="max-h-full max-w-full shadow-2xl"
+                      className="max-h-full max-w-full block"
                       onTimeUpdate={handleTimeUpdate}
                       onLoadedMetadata={handleLoadedMetadata}
                       onClick={togglePlay}
                       onEnded={() => setIsPlaying(false)}
+                      style={{ maxHeight: 'calc(100vh - 160px)' }} // Prevent overflow
                     />
 
-                    {/* Custom Controls Overlay */}
+                    {/* Controls Overlay */}
                     {!isPlaying && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 pointer-events-none transition-opacity group-hover:bg-black/10">
-                        <div className="w-24 h-24 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center animate-pulse shadow-[0_0_30px_rgba(0,0,0,0.5)]">
-                          <PlayIcon className="w-10 h-10 text-white fill-current ml-1" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/10 transition-colors cursor-pointer" onClick={togglePlay}>
+                        <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center animate-pulse shadow-2xl">
+                          <PlayIcon className="w-8 h-8 text-white ml-1" />
                         </div>
                       </div>
                     )}
 
-                    {/* Progress Bar Overlay */}
-                    <div className="absolute bottom-1 left-0 right-0 z-50 group/progress h-4 flex items-end cursor-pointer">
-                      {/* Hit Area Container - makes it easier to hover without pixel precision */}
-                      <div
-                        className="w-full relative py-2" // Vertical padding extends hit area
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const percent = (e.clientX - rect.left) / rect.width;
-                          if (duration > 0) seekTo(percent * duration);
-                        }}
-                      >
-                        {/* Background Track */}
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 group-hover/progress:h-1 bg-white/20 transition-all duration-200 ease-out backdrop-blur-sm" />
-
-                        {/* Current Progress Line */}
-                        <div
-                          className="absolute bottom-0 left-0 h-0.5 group-hover/progress:h-1 bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-all duration-200 ease-out"
-                          style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-                        >
-                          {/* Handle / Thumb */}
-                          <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3.5 h-3.5 bg-white rounded-full opacity-0 scale-50 group-hover/progress:opacity-100 group-hover/progress:scale-100 transition-all duration-200 ease-out shadow-lg" />
-                        </div>
-                      </div>
-
-                      {/* Time Details - Hover tooltip */}
-                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-medium text-white opacity-0 group-hover/progress:opacity-100 transition-opacity pointer-events-none">
-                        <span>{new Date(currentTime * 1000).toISOString().substr(14, 5)}</span>
-                        <span className="mx-1 text-white/50">/</span>
-                        <span>{new Date(duration * 1000).toISOString().substr(14, 5)}</span>
-                      </div>
-                    </div>
-
                     {/* Subtitle Overlay */}
                     {activeSubtitle && (
                       <div
-                        className="absolute w-full flex justify-center pointer-events-none px-8 text-center"
+                        className="absolute w-full flex justify-center pointer-events-none px-8 text-center transition-all duration-200"
                         style={{ top: `${styleConfig.yAlign}%` }}
                       >
                         <span
@@ -362,50 +302,81 @@ const App: React.FC = () => {
                             color: styleConfig.color,
                             backgroundColor: `rgba(${parseInt(styleConfig.backgroundColor.slice(1, 3), 16)}, ${parseInt(styleConfig.backgroundColor.slice(3, 5), 16)}, ${parseInt(styleConfig.backgroundColor.slice(5, 7), 16)}, ${styleConfig.backgroundOpacity})`,
                             fontWeight: styleConfig.fontWeight,
-                            padding: '4px 12px',
-                            borderRadius: '4px',
-                            maxWidth: '80%',
-                            textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+                            padding: '0.2em 0.6em',
+                            borderRadius: '0.3em',
+                            maxWidth: '85%',
+                            lineHeight: '1.4',
+                            textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                            display: 'inline-block'
                           }}
                         >
-                          {(() => {
-                            if (activeSubtitle.words && activeSubtitle.words.length > 0) {
-                              const currentWord = activeSubtitle.words.find(w => currentTime >= w.startTime && currentTime <= w.endTime);
-                              return currentWord ? currentWord.text : activeSubtitle.text;
-                            }
-                            return activeSubtitle.text;
-                          })()}
+                          {getDisplayedText()}
                         </span>
                       </div>
                     )}
+
+                    {/* Simple Progress Bar on Video */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20 cursor-pointer group" onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const percent = (e.clientX - rect.left) / rect.width;
+                      if (duration > 0) seekTo(percent * duration);
+                    }}>
+                      <div className="h-full bg-primary relative" style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 shadow-md" />
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div>
 
-
-              {/* Style Editor: Columns 10-12 (Right) */}
-              <div className="col-span-3 row-span-4 min-h-0">
+              {/* RIGHT PANEL: STYLE EDITOR */}
+              <div className="w-80 border-l border-white/5 bg-black/20 backdrop-blur-sm p-4 min-w-[320px]">
                 <StyleEditor config={styleConfig} onChange={setStyleConfig} />
               </div>
 
-              {/* Timeline: Columns 1-12 (Bottom) */}
-              <div className="col-span-12 row-span-2 min-h-0">
-                <Timeline
-                  subtitles={subtitles}
-                  currentTime={currentTime}
-                  duration={duration}
-                  onSubtitleClick={seekTo}
-                  onDeleteSubtitle={deleteSubtitle}
-                  onUpdateSubtitle={updateSubtitleText}
-                  onSubtitleTimeUpdate={updateSubtitleTime}
-                  videoRef={videoRef}
-                />
-              </div>
             </div>
+
+            {/* TIMELINE - Bottom Panel */}
+            <div className="h-40 border-t border-white/5 bg-black/40 backdrop-blur-md p-4 z-20 shrink-0">
+              <Timeline
+                subtitles={subtitles}
+                currentTime={currentTime}
+                duration={duration}
+                onSubtitleClick={seekTo}
+                onDeleteSubtitle={deleteSubtitle}
+                onUpdateSubtitle={updateSubtitleText}
+                onSubtitleTimeUpdate={updateSubtitleTime}
+                videoRef={videoRef}
+              />
+            </div>
+
+          </>
+        ) : (
+          // NON-EDITOR STATE (UPLOAD / PREVIEW / GENERATING)
+          <div className="flex-1 flex flex-col">
+            {appState === AppState.UPLOAD && <UploadZone onFileSelect={handleFileSelect} />}
+
+            {appState === AppState.GENERATING && <LoadingScreen />}
+
+            {appState === AppState.PREVIEW && videoUrl && (
+              <div className="flex flex-col items-center justify-center flex-1 space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                <div className="relative group w-full max-w-4xl aspect-video rounded-3xl border-2 border-dashed border-white/10 bg-black/40 backdrop-blur-md overflow-hidden p-2 shadow-2xl">
+                  <video src={videoUrl} className="w-full h-full object-contain rounded-2xl" controls />
+                </div>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setAppState(AppState.UPLOAD)} className="px-6 py-3 rounded-xl text-zinc-400 hover:text-white transition-colors border border-transparent hover:border-white/10">Choose Different Video</button>
+                  <button onClick={handleGenerate} className="group flex items-center gap-2 px-8 py-3 bg-white text-black rounded-xl font-bold hover:bg-zinc-200 transition-all hover:scale-105 shadow-[0_0_30px_rgba(255,255,255,0.15)]">
+                    <WandIcon className="w-5 h-5 group-hover:rotate-12 transition-transform" /> Generate
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };
 

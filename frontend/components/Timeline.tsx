@@ -215,7 +215,7 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
     return (
         <div className="h-full w-full border-2 border-dashed border-zinc-700/50 rounded-3xl bg-black/20 backdrop-blur-md flex flex-col overflow-hidden shadow-2xl transition-all hover:border-zinc-600/80">
             {/* Header / Toolbar */}
-            <div className="px-6 py-3 border-b border-white/5 flex justify-between items-center bg-white/5 select-none">
+            <div className="px-4 py-2 border-b border-white/5 flex justify-between items-center bg-white/5 select-none shrink-0">
                 <span className="text-[10px] tracking-widest font-bold text-zinc-400 uppercase">Sequence Timeline</span>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -231,7 +231,7 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
 
             <div
                 ref={scrollAreaRef}
-                className="flex-1 relative overflow-x-auto overflow-y-hidden select-none custom-scrollbar pt-8"
+                className="flex-1 relative overflow-x-auto overflow-y-hidden select-none custom-scrollbar pt-2"
                 onMouseDown={(e) => {
                     if (e.target === scrollAreaRef.current || (e.target as HTMLElement).classList.contains('timeline-bg')) {
                         handleMouseDown(e, 'scrub');
@@ -269,7 +269,7 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
                     </div>
 
                     {/* Subtitle Track */}
-                    <div className="relative h-24 top-2">
+                    <div className="relative h-12 top-1">
                         {subtitles.map((sub) => {
                             const left = sub.startTime * getPxPerSec();
                             const width = (sub.endTime - sub.startTime) * getPxPerSec();
@@ -279,7 +279,7 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
                                 <div
                                     key={sub.id}
                                     className={`
-                                absolute h-14 rounded-md border backdrop-blur-sm overflow-hidden group transition-colors shadow-sm
+                                absolute h-10 rounded-md border backdrop-blur-sm overflow-hidden group transition-colors shadow-sm
                                 ${isActive
                                             ? 'bg-primary/20 border-primary/50 ring-1 ring-primary/30 z-10'
                                             : 'bg-zinc-800/40 border-white/10 hover:bg-zinc-700/60 hover:border-white/30'
@@ -304,7 +304,7 @@ const Timeline: React.FC<ExtendedTimelineProps> = ({
                                         onMouseDown={(e) => handleMouseDown(e, 'resize-r', sub.id, sub)}
                                     />
 
-                                    <div className="px-3 py-2 h-full flex flex-col justify-between">
+                                    <div className="px-2 py-1 h-full flex flex-col justify-between">
                                         <input
                                             className="bg-transparent text-xs text-zinc-200 outline-none w-full font-medium placeholder-zinc-600 truncate pointer-events-auto"
                                             value={sub.text}
