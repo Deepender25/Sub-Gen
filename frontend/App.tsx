@@ -5,6 +5,7 @@ import LoadingScreen from './components/LoadingScreen';
 import StyleEditor from './components/StyleEditor';
 import SubtitleList from './components/SubtitleList'; // New Component
 import Timeline from './components/Timeline';
+
 import { uploadVideo, generateSubtitles, exportVideo } from './services/api';
 import { useHistory } from './hooks/useHistory';
 import { PlayIcon, WandIcon, UndoIcon, RedoIcon } from './components/Icons';
@@ -31,6 +32,7 @@ const App: React.FC = () => {
 
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
   const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
+  const [previewScale, setPreviewScale] = useState(1);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -91,7 +93,29 @@ const App: React.FC = () => {
     return () => {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
   }, [isPlaying]);
+
+  // --- Scale Calculation ---
+  useEffect(() => {
+    const updateScale = () => {
+      if (videoRef.current && videoSize.width > 0) {
+        const clientWidth = videoRef.current.clientWidth;
+        setPreviewScale(clientWidth / videoSize.width);
+      }
+    };
+
+    window.addEventListener('resize', updateScale);
+    // Initial update
+    const interval = setInterval(updateScale, 500); // Check periodically for layout changes
+
+    return () => {
+      window.removeEventListener('resize', updateScale);
+      clearInterval(interval);
+    };
+  }, [videoSize.width]);
 
   useEffect(() => {
     return () => {
@@ -137,10 +161,19 @@ const App: React.FC = () => {
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+      const { videoWidth, videoHeight } = videoRef.current;
       setVideoSize({
-        width: videoRef.current.videoWidth,
-        height: videoRef.current.videoHeight
+        width: videoWidth,
+        height: videoHeight
       });
+
+      // Smart Auto-Sizing: Set font size to roughly 4.5% of the video height
+      // This ensures readability on both 1080p landscapes and 4K verticals
+      const optimalFontSize = Math.max(24, Math.round(videoHeight * 0.045));
+      setStyleConfig(prev => ({
+        ...prev,
+        fontSize: optimalFontSize
+      }));
     }
   };
 
@@ -364,16 +397,19 @@ const App: React.FC = () => {
                         <span
                           style={{
                             fontFamily: styleConfig.fontFamily,
-                            fontSize: `${styleConfig.fontSize}px`,
+                            fontSize: `${styleConfig.fontSize * previewScale}px`,
                             color: styleConfig.color,
                             backgroundColor: `rgba(${parseInt(styleConfig.backgroundColor.slice(1, 3), 16)}, ${parseInt(styleConfig.backgroundColor.slice(3, 5), 16)}, ${parseInt(styleConfig.backgroundColor.slice(5, 7), 16)}, ${styleConfig.backgroundOpacity})`,
                             fontWeight: styleConfig.fontWeight,
-                            padding: '0.2em 0.6em',
-                            borderRadius: '0.3em',
-                            maxWidth: '85%',
+                            padding: '0.25em 0.5em',
+                            borderRadius: '0.4em',
+                            maxWidth: '90%',
                             lineHeight: '1.4',
                             textShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                            display: 'inline-block'
+                            display: 'inline',
+                            boxDecorationBreak: 'clone',
+                            WebkitBoxDecorationBreak: 'clone',
+                            textAlign: 'center'
                           }}
                         >
                           {getDisplayedText()}
@@ -400,6 +436,7 @@ const App: React.FC = () => {
               {/* RIGHT PANEL: STYLE EDITOR */}
               <div className="w-80 border-l border-white/5 bg-black/20 backdrop-blur-sm p-4 min-w-[320px]">
                 <StyleEditor config={styleConfig} onChange={setStyleConfig} />
+
               </div>
 
             </div>

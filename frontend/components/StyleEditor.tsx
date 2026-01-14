@@ -38,8 +38,8 @@ const StyleEditor: React.FC<StyleEditorProps> = ({ config, onChange }) => {
                                         key={mode}
                                         onClick={() => update('displayMode', mode)}
                                         className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${config.displayMode === mode
-                                                ? 'bg-primary text-white shadow-lg'
-                                                : 'text-zinc-400 hover:text-white'
+                                            ? 'bg-primary text-white shadow-lg'
+                                            : 'text-zinc-400 hover:text-white'
                                             }`}
                                     >
                                         {mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -92,15 +92,31 @@ const StyleEditor: React.FC<StyleEditorProps> = ({ config, onChange }) => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm text-zinc-400">Size (px)</label>
-                                <input
-                                    type="number"
-                                    value={config.fontSize}
-                                    onChange={(e) => update('fontSize', Number(e.target.value))}
-                                    className={glassInputClass}
-                                />
+                            <div className="col-span-2 space-y-2">
+                                <label className="text-sm text-zinc-400 flex justify-between">
+                                    Size (px)
+                                    <span className="text-white text-xs">{config.fontSize}px</span>
+                                </label>
+                                <div className="flex gap-3">
+                                    <input
+                                        type="range"
+                                        min="12"
+                                        max="400"
+                                        value={config.fontSize}
+                                        onChange={(e) => update('fontSize', Number(e.target.value))}
+                                        className="flex-1 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-primary self-center"
+                                    />
+                                    <input
+                                        type="number"
+                                        value={config.fontSize}
+                                        onChange={(e) => update('fontSize', Number(e.target.value))}
+                                        className="w-16 bg-black/40 border border-white/10 rounded-lg p-1.5 text-sm text-center text-white focus:ring-2 focus:ring-primary/50 outline-none backdrop-blur-sm"
+                                    />
+                                </div>
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm text-zinc-400">Weight</label>
                                 <select
