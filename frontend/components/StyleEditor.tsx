@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleConfig } from '../types';
 import { TypeIcon, PaletteIcon } from './Icons';
+import FontSelector from './FontSelector';
 
 interface StyleEditorProps {
     config: StyleConfig;
@@ -77,18 +78,10 @@ const StyleEditor: React.FC<StyleEditorProps> = ({ config, onChange }) => {
 
                         <div className="space-y-2">
                             <label className="text-sm text-zinc-400">Font Family</label>
-                            <select
+                            <FontSelector
                                 value={config.fontFamily}
-                                onChange={(e) => update('fontFamily', e.target.value)}
-                                className={glassInputClass}
-                            >
-                                <option value="Space Grotesk" className="bg-zinc-900">Space Grotesk</option>
-                                <option value="Inter" className="bg-zinc-900">Inter</option>
-                                <option value="Roboto" className="bg-zinc-900">Roboto</option>
-                                <option value="Arial" className="bg-zinc-900">Arial</option>
-                                <option value="Courier New" className="bg-zinc-900">Courier New</option>
-                                <option value="Georgia" className="bg-zinc-900">Georgia</option>
-                            </select>
+                                onChange={(val) => update('fontFamily', val)}
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
