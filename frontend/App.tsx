@@ -5,6 +5,8 @@ import LoadingScreen from './components/LoadingScreen';
 import StyleEditor from './components/StyleEditor';
 import SubtitleList from './components/SubtitleList'; // New Component
 import Timeline from './components/Timeline';
+import ExportModal from './components/ExportModal';
+import DiscardModal from './components/DiscardModal';
 
 import { uploadVideo, generateSubtitles, exportVideo } from './services/api';
 import { useHistory } from './hooks/useHistory';
@@ -33,6 +35,10 @@ const App: React.FC = () => {
   const [currentFilename, setCurrentFilename] = useState<string | null>(null);
   const [videoSize, setVideoSize] = useState({ width: 0, height: 0 });
   const [previewScale, setPreviewScale] = useState(1);
+
+
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -196,15 +202,25 @@ const App: React.FC = () => {
     setSubtitles(prev => prev.filter(s => s.id !== id));
   };
 
-  const handleExport = async () => {
-    if (!currentFilename) return;
-    try {
-      const downloadUrl = await exportVideo(currentFilename, subtitles, styleConfig);
-      window.open(downloadUrl, '_blank');
-    } catch (error) {
-      console.error("Export failed:", error);
-      alert("Export failed. See console for details.");
-    }
+  const handleDiscardClick = () => {
+    if (videoRef.current) videoRef.current.pause();
+    setIsPlaying(false);
+    setShowDiscardModal(true);
+  };
+
+  const handleConfirmDiscard = () => {
+    setVideoFile(null);
+    setVideoUrl(null);
+    setSubtitles([]);
+    setCurrentFilename(null);
+    setAppState(AppState.UPLOAD);
+    setShowDiscardModal(false);
+  };
+
+  const handleExportClick = () => {
+    if (videoRef.current) videoRef.current.pause();
+    setIsPlaying(false);
+    setShowExportModal(true);
   };
 
   // --- render logic ---
@@ -325,12 +341,30 @@ const App: React.FC = () => {
                     <RedoIcon className="w-4 h-4" />
                   </button>
                 </div>
-                <button onClick={() => setAppState(AppState.UPLOAD)} className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors">Disacrd</button>
-                <button onClick={handleExport} className="px-5 py-2 text-sm font-bold bg-white text-black rounded-lg hover:bg-zinc-200 shadow-lg">Export Video</button>
+                <button onClick={handleDiscardClick} className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors">Discard</button>
+                <button onClick={handleExportClick} className="px-5 py-2 text-sm font-bold bg-white text-black rounded-lg hover:bg-zinc-200 shadow-lg">Export Video</button>
               </div>
             )}
           </div>
         )}
+
+        {showExportModal && videoUrl && currentFilename && (
+          <ExportModal
+            videoUrl={videoUrl}
+            subtitles={subtitles}
+            styleConfig={styleConfig}
+            currentFilename={currentFilename}
+            onClose={() => setShowExportModal(false)}
+          />
+        )}
+
+        {showDiscardModal && (
+          <DiscardModal
+            onConfirm={handleConfirmDiscard}
+            onCancel={() => setShowDiscardModal(false)}
+          />
+        )}
+
 
         {/* EDITOR LAYOUT */}
         {appState === AppState.EDITOR && videoUrl ? (
@@ -479,7 +513,7 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
-    </div >
+    </div>
   );
 };
 

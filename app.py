@@ -109,6 +109,7 @@ def burn_video():
     data = request.json
     filename = data.get('filename')
     segments = data.get('segments')
+    video_format = data.get('format', 'mp4') # Default to mp4
     
     if not filename or not segments:
         return jsonify({'error': 'Filename and segments required'}), 400
@@ -121,7 +122,9 @@ def burn_video():
     video_editor.generate_srt(segments, srt_path)
     
     # Burn subtitles
-    output_filename = f"subtitled_{filename}"
+    # Replace original extension with requested format extension
+    base_name = os.path.splitext(filename)[0]
+    output_filename = f"subtitled_{base_name}.{video_format}"
     output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
     
     # Get style config (optional)
@@ -137,7 +140,7 @@ def burn_video():
     else:
         return jsonify({'error': 'Failed to burn subtitles'}), 500
 
-@app.route('/download/<filename>')
+@app.route('/download/<path:filename>')
 def download_file(filename):
     return send_from_directory(app.config['OUTPUT_FOLDER'], filename, as_attachment=True)
 

@@ -52,7 +52,7 @@ export const generateSubtitles = async (filename: string): Promise<Subtitle[]> =
     }));
 };
 
-export const exportVideo = async (filename: string, subtitles: Subtitle[], styleConfig: StyleConfig): Promise<string> => {
+export const exportVideo = async (filename: string, subtitles: Subtitle[], styleConfig: StyleConfig, format: string = 'mp4'): Promise<string> => {
     // Convert Subtitle[] back to segments format expected by backend
     const segments = subtitles.map(s => ({
         start: s.startTime,
@@ -65,7 +65,7 @@ export const exportVideo = async (filename: string, subtitles: Subtitle[], style
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ filename, segments, styleConfig }),
+        body: JSON.stringify({ filename, segments, styleConfig, format }),
     });
 
     if (!response.ok) {
