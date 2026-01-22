@@ -123,14 +123,16 @@ def burn_video():
     
     # Burn subtitles
     # Replace original extension with requested format extension
+    # USE UNIQUE FILENAME to prevent browser caching or overwriting issues
     base_name = os.path.splitext(filename)[0]
-    output_filename = f"subtitled_{base_name}.{video_format}"
+    unique_suffix = str(uuid.uuid4())[:8]
+    output_filename = f"subtitled_{base_name}_{unique_suffix}.{video_format}"
     output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
     
     # Get style config (optional)
     style_config = data.get('styleConfig')
     
-    success = video_editor.burn_subtitles(input_path, srt_path, output_path, style_config)
+    success = video_editor.burn_subtitles(input_path, srt_path, output_path, style_config, segments)
     
     if success:
         return jsonify({

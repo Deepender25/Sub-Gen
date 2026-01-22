@@ -57,7 +57,12 @@ export const exportVideo = async (filename: string, subtitles: Subtitle[], style
     const segments = subtitles.map(s => ({
         start: s.startTime,
         end: s.endTime,
-        text: s.text
+        text: s.text,
+        words: s.words?.map(w => ({
+            word: w.text,
+            start: w.startTime,
+            end: w.endTime
+        }))
     }));
 
     const response = await fetch(`${API_BASE}/burn`, {
