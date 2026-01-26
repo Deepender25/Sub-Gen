@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Subtitle, StyleConfig } from '../types';
 import { XIcon, DownloadIcon, FilmIcon } from './Icons';
 import { exportVideo } from '../services/api';
+import { DynamicSubtitle } from './DynamicSubtitle';
 
 interface ExportModalProps {
     videoUrl: string;
@@ -242,26 +243,12 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
                                 className="absolute w-full flex justify-center pointer-events-none px-4 text-center transition-all duration-75"
                                 style={{ top: `${styleConfig.yAlign}%` }}
                             >
-                                <span
-                                    style={{
-                                        fontFamily: styleConfig.fontFamily,
-                                        fontSize: `${styleConfig.fontSize * previewScale}px`,
-                                        color: styleConfig.color,
-                                        backgroundColor: `rgba(${parseInt(styleConfig.backgroundColor.slice(1, 3), 16)}, ${parseInt(styleConfig.backgroundColor.slice(3, 5), 16)}, ${parseInt(styleConfig.backgroundColor.slice(5, 7), 16)}, ${styleConfig.backgroundOpacity})`,
-                                        fontWeight: styleConfig.fontWeight,
-                                        padding: '0.25em 0.5em',
-                                        borderRadius: '0.4em',
-                                        maxWidth: '90%',
-                                        lineHeight: '1.4',
-                                        textShadow: '0 2px 8px rgba(0,0,0,0.5)',
-                                        display: 'inline',
-                                        boxDecorationBreak: 'clone',
-                                        WebkitBoxDecorationBreak: 'clone',
-                                        textAlign: 'center'
-                                    }}
-                                >
-                                    {getDisplayedText()}
-                                </span>
+                                <DynamicSubtitle
+                                    text={getDisplayedText() || ''}
+                                    styleConfig={styleConfig}
+                                    previewScale={previewScale}
+                                    containerRef={videoRef}
+                                />
                             </div>
                         )}
                     </div>
