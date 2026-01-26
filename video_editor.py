@@ -483,6 +483,40 @@ def generate_subtitle_images(subtitles, style_config, output_dir, video_width=19
             # Update DOM
             page.evaluate(f'document.getElementById("text").innerText = "{safe_text}";')
             
+            # Dynamic Resizing Logic (Inject JS)
+            # Ensures text fits within 94% width and doesn't vertically overflow
+            page.evaluate("""
+                (function() {
+                    const text = document.getElementById('text');
+                    const bodyW = document.body.clientWidth;
+                    const bodyH = document.body.clientHeight;
+                    
+                    // Reset to base style from CSS
+                    text.style.fontSize = ''; 
+                    
+                    let size = parseFloat(window.getComputedStyle(text).fontSize);
+                    
+                    // Safety break
+                    let iterations = 0;
+                    while (size > 8 && iterations < 50) {
+                        const rect = text.getBoundingClientRect();
+                        const isTooWide = rect.width > bodyW * 0.94;
+                        const isTooTall = rect.bottom > bodyH || rect.top < 0; 
+                        
+                        // Also check if text is off-screen due to yAlign
+                        // The container is positioned at yAlign%.
+                        
+                        if (!isTooWide && !isTooTall) {
+                            break; 
+                        }
+                        
+                        size *= 0.9; // Shrink by 10%
+                        text.style.fontSize = size + 'px';
+                        iterations++;
+                    }
+                })()
+            """)
+            
             # Screenshot
             img_filename = f"sub_{i:04d}.png"
             img_path = os.path.join(output_dir, img_filename)
