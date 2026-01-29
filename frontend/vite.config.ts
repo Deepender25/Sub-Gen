@@ -14,5 +14,8 @@ export default defineConfig({
       '/download': 'http://localhost:5000',
       '/export_soft_subs': 'http://localhost:5000',
     }
+  },
+  optimizeDeps: {
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
   }
 });

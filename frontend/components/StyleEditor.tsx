@@ -3,6 +3,7 @@ import { StyleConfig } from '../types';
 import { TypeIcon, PaletteIcon } from './Icons';
 import FontSelector from './FontSelector';
 import ColorPicker from './ColorPicker';
+import { VIDEO_PRESETS } from '../utils/subtitleUtils';
 
 interface StyleEditorProps {
     config: StyleConfig;
@@ -12,6 +13,18 @@ interface StyleEditorProps {
 const StyleEditor: React.FC<StyleEditorProps> = ({ config, onChange }) => {
     const update = (key: keyof StyleConfig, value: any) => {
         onChange({ ...config, [key]: value });
+    };
+
+    const applyPreset = (presetId: string) => {
+        const preset = VIDEO_PRESETS.find(p => p.id === presetId);
+        if (preset) {
+            onChange({
+                ...config,
+                fontSize: preset.recommendedFontSize,
+                yAlign: preset.recommendedYAlign,
+                activePreset: presetId
+            });
+        }
     };
 
     const glassInputClass = "w-full bg-black/40 border border-white/10 rounded-lg p-2 text-sm text-white focus:ring-2 focus:ring-primary/50 outline-none backdrop-blur-sm transition-all hover:bg-black/50 hover:border-white/20";
@@ -28,6 +41,37 @@ const StyleEditor: React.FC<StyleEditorProps> = ({ config, onChange }) => {
 
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                 <div className="space-y-8">
+
+                    {/* --- PLATFORM PRESETS --- */}
+                    <div className="space-y-4">
+                        <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
+                            🎬 Platform Presets
+                        </h3>
+                        <div className="grid grid-cols-2 gap-2">
+                            {VIDEO_PRESETS.map((preset) => (
+                                <button
+                                    key={preset.id}
+                                    onClick={() => applyPreset(preset.id)}
+                                    className={`relative flex flex-col items-center justify-center py-3 px-2 rounded-xl border transition-all ${config.activePreset === preset.id
+                                            ? 'bg-primary/20 border-primary/50 text-white shadow-lg shadow-primary/10'
+                                            : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10 hover:text-white hover:border-white/10'
+                                        }`}
+                                >
+                                    <span className="text-lg mb-1">{preset.icon}</span>
+                                    <span className="text-[10px] font-medium text-center leading-tight">{preset.name}</span>
+                                    <span className="text-[9px] text-zinc-500 mt-0.5">{preset.aspectRatio}</span>
+                                    {config.activePreset === preset.id && (
+                                        <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-zinc-500 text-center">
+                            Presets auto-adjust font size & position for each platform
+                        </p>
+                    </div>
+
+                    <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
                     {/* --- 1. TYPOGRAPHY & TEXT STYLE --- */}
                     <div className="space-y-5">

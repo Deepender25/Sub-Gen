@@ -52,8 +52,14 @@ export const generateSubtitles = async (filename: string): Promise<Subtitle[]> =
     }));
 };
 
-export const exportVideo = async (filename: string, subtitles: Subtitle[], styleConfig: StyleConfig, format: string = 'mp4'): Promise<string> => {
+export const exportVideo = async (
+    filename: string,
+    subtitles: Subtitle[],
+    styleConfig: StyleConfig,
+    format: string = 'mp4'
+): Promise<string> => {
     // Convert Subtitle[] back to segments format expected by backend
+    // Include word-level data for server-side entry building
     const segments = subtitles.map(s => ({
         start: s.startTime,
         end: s.endTime,
@@ -65,12 +71,24 @@ export const exportVideo = async (filename: string, subtitles: Subtitle[], style
         }))
     }));
 
+    // Send complete style config including displayMode and wordsPerLine
+    // Backend will use this to compute entries server-side
     const response = await fetch(`${API_BASE}/burn`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ filename, segments, styleConfig, format }),
+        body: JSON.stringify({
+            filename,
+            segments,
+            styleConfig: {
+                ...styleConfig,
+                // Ensure these critical fields are included
+                displayMode: styleConfig.displayMode || 'sentence',
+                wordsPerLine: styleConfig.wordsPerLine || 3
+            },
+            format
+        }),
     });
 
     if (!response.ok) {
@@ -79,5 +97,5 @@ export const exportVideo = async (filename: string, subtitles: Subtitle[], style
     }
 
     const data = await response.json();
-    return data.download_url; // Returns the download URL
+    return data.download_url;
 };

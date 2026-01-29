@@ -1,5 +1,96 @@
 import ffmpeg
 import os
+import re
+
+def build_subtitle_entries(segments, style_config):
+    """
+    Build subtitle entries based on display mode.
+    This mirrors the frontend buildSubtitleEntries() logic.
+    
+    Returns a list of dicts with: text, start, end
+    """
+    entries = []
+    display_mode = style_config.get('displayMode', 'sentence')
+    words_per_line = style_config.get('wordsPerLine', 3)
+    
+    for segment in segments:
+        seg_start = segment.get('start', 0)
+        seg_end = segment.get('end', 0)
+        seg_text = segment.get('text', '').strip()
+        words = segment.get('words', [])
+        
+        # Sentence mode: one entry per segment
+        if display_mode == 'sentence':
+            entries.append({
+                'text': seg_text,
+                'start': seg_start,
+                'end': seg_end
+            })
+            continue
+        
+        # If no word-level data, fallback to sentence
+        if not words:
+            entries.append({
+                'text': seg_text,
+                'start': seg_start,
+                'end': seg_end
+            })
+            continue
+        
+        # Word mode: one entry per word
+        if display_mode == 'word':
+            for i, word in enumerate(words):
+                word_text = word.get('word', '').strip()
+                word_start = word.get('start', seg_start)
+                
+                # Extend word duration to fill gap (prevents flashing)
+                if i + 1 < len(words):
+                    next_start = words[i + 1].get('start', seg_end)
+                    word_end = min(next_start, seg_end)
+                else:
+                    word_end = seg_end
+                
+                entries.append({
+                    'text': word_text,
+                    'start': word_start,
+                    'end': word_end
+                })
+            continue
+        
+        # Phrase mode: group words into chunks
+        if display_mode == 'phrase':
+            current_chunk = []
+            chunk_start = words[0].get('start', seg_start) if words else seg_start
+            
+            for i, word in enumerate(words):
+                word_text = word.get('word', '').strip()
+                
+                if not current_chunk:
+                    chunk_start = word.get('start', seg_start)
+                
+                current_chunk.append(word_text)
+                
+                # Break conditions
+                has_punctuation = bool(re.search(r'[.?!,;:]', word_text))
+                should_break = len(current_chunk) >= words_per_line or (has_punctuation and len(current_chunk) > 1)
+                is_last = i == len(words) - 1
+                
+                if should_break or is_last:
+                    # Extend chunk duration to fill gap
+                    if i + 1 < len(words):
+                        next_start = words[i + 1].get('start', seg_end)
+                        chunk_end = min(next_start, seg_end)
+                    else:
+                        chunk_end = seg_end
+                    
+                    entries.append({
+                        'text': ' '.join(current_chunk),
+                        'start': chunk_start,
+                        'end': chunk_end
+                    })
+                    current_chunk = []
+    
+    return entries
 
 def generate_srt(segments, output_path):
     """
@@ -58,30 +149,25 @@ def get_video_info(video_path):
 def generate_ass_file(subtitles, style_config, output_path, video_width=1920, video_height=1080):
     """
     Generates an ASS subtitle file from segments and style config.
+    Uses build_subtitle_entries() to properly handle displayMode.
     """
+    # Build entries based on displayMode (word/phrase/sentence)
+    entries = build_subtitle_entries(subtitles, style_config)
+    
     # Font Fallback
     style_font = style_config.get("fontFamily", "Arial")
-    # Check if font file exists in CWD
-    # We assume the font filename matches the family name + .ttf (e.g. "Space Grotesk.ttf")
-    # If not found, fall back to "Arial" which we know exists (or system default)
     if os.path.exists(os.path.join(os.getcwd(), f"{style_font}.ttf")):
         font_name = style_font
     elif os.path.exists(os.path.join(os.getcwd(), f"{style_font}.otf")):
          font_name = style_font
     else:
-        # Fallback to Arial if specific font not found locally
-        # The user needs to upload/place the .ttf file for it to work
         font_name = "Arial"
         print(f"WARN: Font '{style_font}' not found. Falling back to Arial.")
 
-    font_size = style_config.get("fontSize", 24)
-    # Ensure colors are properly formatted
+    font_size = style_config.get("fontSize", 48)
     text_color = style_config.get("color", "#FFFFFF")
     primary_color = hex_to_ass_color(text_color)
     
-    # Background/Outline
-    # If user wants a background box, we typically use BorderStyle=3 (Opaque Box) in ASS.
-    # If they just want outline, BorderStyle=1.
     bg_color_hex = style_config.get("backgroundColor", "#000000")
     bg_opacity = style_config.get("backgroundOpacity", 0.6)
     back_color = hex_to_ass_color(bg_color_hex, bg_opacity)
@@ -92,14 +178,18 @@ def generate_ass_file(subtitles, style_config, output_path, video_width=1920, vi
     alignment = 2 
     
     # Calculate MarginV based on yAlign percent
-    y_align_percent = style_config.get('yAlign', 85)
+    y_align_percent = style_config.get('yAlign', 75)
     margin_v = int(video_height * (1.0 - (y_align_percent / 100.0)))
+    
+    # Font weight
+    font_weight = style_config.get('fontWeight', '400')
+    bold = 1 if int(font_weight) >= 600 else 0
     
     # Construct Style String
     border_style = 3 if style_config.get("backgroundColor") else 1
     outline_width = 0 if border_style == 3 else 2 
     
-    style_line = f"Style: Default,{font_name},{font_size},{primary_color},&H000000FF,{outline_color},{back_color},0,0,0,0,100,100,0,0,{border_style},{outline_width},0,{alignment},10,10,{margin_v},1"
+    style_line = f"Style: Default,{font_name},{font_size},{primary_color},&H000000FF,{outline_color},{back_color},{bold},0,0,0,100,100,0,0,{border_style},{outline_width},0,{alignment},20,20,{margin_v},1"
     
     header = f"""[Script Info]
 ScriptType: v4.00+
@@ -123,30 +213,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         secs = int(seconds % 60)
         centis = int((seconds - int(seconds)) * 100)
         return f"{hours}:{minutes:02}:{secs:02}.{centis:02}"
-        
-    # Word Wrapping Logic
-    words_per_line = style_config.get('wordsPerLine', 0)
-    
-    def wrap_text(text, wpl):
-        if not wpl or wpl <= 0:
-            return text
-        words = text.split()
-        lines = []
-        for i in range(0, len(words), wpl):
-            lines.append(" ".join(words[i:i+wpl]))
-        return "\\N".join(lines)
 
-    for sub in subtitles:
-        start = format_time_ass(sub['start'])
-        end = format_time_ass(sub['end'])
-        
-        raw_text = sub['text'].strip()
-        # Apply wrapping
-        if words_per_line and words_per_line > 0:
-             text = wrap_text(raw_text, words_per_line)
-        else:
-             text = raw_text.replace('\n', '\\N')
-             
+    # Use pre-built entries directly
+    for entry in entries:
+        start = format_time_ass(entry['start'])
+        end = format_time_ass(entry['end'])
+        text = entry['text'].replace('\n', '\\N')
         events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{text}")
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -382,73 +454,8 @@ def generate_subtitle_images(subtitles, style_config, output_dir, video_width=19
         
     image_map = []
     
-    # Word Wrapping Helper (Frontend Logic Replication)
-    words_per_line = style_config.get('wordsPerLine', 0)
-    def process_text_for_display(text, mode, wpl):
-        if mode == 'sentence':
-            return text
-        # Simple WPL wrapping for now to match backend 'phrase' mode
-        if wpl > 0:
-            words = text.split()
-            lines = []
-            for i in range(0, len(words), wpl):
-                lines.append(" ".join(words[i:i+wpl]))
-            return "\\n".join(lines) # Use \n for HTML -> CSS white-space interaction? 
-            # Actually frontend relies on natural wrapping unless we force break.
-            # But 'white-space: pre-wrap' handles \n.
-            # Let's assume the user wants line breaks.
-        return text
-
-    display_mode = style_config.get('displayMode', 'sentence')
-    
-    # Flatten Logic
-    render_items = []
-    
-    if display_mode == 'word':
-        # Flatten to individual words
-        for sub in subtitles:
-            if 'words' in sub and sub['words']:
-                for w in sub['words']:
-                    render_items.append({
-                        'text': w['word'].strip(),
-                        'start': w['start'],
-                        'end': w['end']
-                    })
-            else:
-               # Fallback if no word timestamps
-               render_items.append(sub)
-               
-    elif display_mode == 'phrase':
-        # Group words into chunks (Frontend logic replication)
-        words_per_line = style_config.get('wordsPerLine', 3)
-        for sub in subtitles:
-            if 'words' in sub and sub['words']:
-                current_chunk = []
-                chunk_start = -1
-                
-                all_words = sub['words']
-                for i, w in enumerate(all_words):
-                    if not current_chunk:
-                        chunk_start = w['start']
-                    
-                    current_chunk.append(w['word'].strip())
-                    
-                    # Break condition
-                    # Punctuation check not implemented perfectly here, using length mainly
-                    if len(current_chunk) >= words_per_line or i == len(all_words) - 1:
-                        render_items.append({
-                            'text': " ".join(current_chunk),
-                            'start': chunk_start,
-                            'end': w['end']
-                        })
-                        current_chunk = []
-            else:
-                 # Fallback
-                 # Naive splitting if no word timestamps? No, fallback to sentence.
-                render_items.append(sub)
-    else:
-        # Sentence mode (Default)
-        render_items = subtitles
+    # Use unified build_subtitle_entries for consistent timing
+    render_items = build_subtitle_entries(subtitles, style_config)
 
     with sync_playwright() as p:
         # Launch browser
@@ -460,25 +467,10 @@ def generate_subtitle_images(subtitles, style_config, output_dir, video_width=19
         page.add_style_tag(content="#text { white-space: pre-wrap; }")
 
         for i, item in enumerate(render_items):
-            # For 'word' mode, we render just the word. 
-            # Frontend highlights the word in context? 
-            # User request: "follow the word, phrase thing". 
-            # Typically this means: "Show ONLY the active word" OR "Highlight active word in sentence".
-            # The current frontend logic `getDisplayedText` returns EXACTLY what should be shown.
-            # If mode is 'word', it returns just that word.
-            # So rendering just `item['text']` is correct for "Typewriter/Karaoke-replacement" style.
-            
-            # Note: phrase mode wrapping logic above handles the grouping.
-            # We don't need `process_text_for_display` wrapping anymore if we flattened it.
-            # EXCEPT for 'sentence' mode where we might still want wrapping.
-            
+            # item is from build_subtitle_entries with keys: text, start, end
             raw_text = item['text'].strip()
-            if display_mode == 'sentence':
-                 # Use existing wrapping for sentence mode
-                 safe_text = process_text_for_display(raw_text, display_mode, words_per_line).replace('"', '\\"').replace('\n', '\\n')
-            else:
-                 # Word/Phrase are already chunks
-                 safe_text = raw_text.replace('"', '\\"').replace('\n', '\\n')
+            # Escape quotes and newlines for JS
+            safe_text = raw_text.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')
 
             # Update DOM
             page.evaluate(f'document.getElementById("text").innerText = "{safe_text}";')
@@ -502,9 +494,6 @@ def generate_subtitle_images(subtitles, style_config, output_dir, video_width=19
                         const rect = text.getBoundingClientRect();
                         const isTooWide = rect.width > bodyW * 0.94;
                         const isTooTall = rect.bottom > bodyH || rect.top < 0; 
-                        
-                        // Also check if text is off-screen due to yAlign
-                        // The container is positioned at yAlign%.
                         
                         if (!isTooWide && !isTooTall) {
                             break; 

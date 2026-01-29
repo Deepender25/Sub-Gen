@@ -1,8 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Subtitle, StyleConfig } from '../types';
 import { XIcon, DownloadIcon, FilmIcon } from './Icons';
 import { exportVideo } from '../services/api';
 import { DynamicSubtitle } from './DynamicSubtitle';
+import { buildSubtitleEntries, generateSRTContent, SubtitleEntry } from '../utils/subtitleUtils';
+import ClientExporter from './ClientExporter';
 
 interface ExportModalProps {
     videoUrl: string;
@@ -12,6 +14,9 @@ interface ExportModalProps {
     onClose: () => void;
 }
 
+type ExportMode = 'server' | 'client';
+type ExportState = 'idle' | 'exporting' | 'client-exporting' | 'complete';
+
 const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleConfig, currentFilename, onClose }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -19,7 +24,16 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
     const [previewScale, setPreviewScale] = useState(1);
     const containerRef = useRef<HTMLDivElement>(null);
     const [selectedFormat, setSelectedFormat] = useState('mp4');
-    const [isExporting, setIsExporting] = useState(false);
+    const [exportState, setExportState] = useState<ExportState>('idle');
+    const [exportMode, setExportMode] = useState<ExportMode>('server');
+    const [clientDownloadUrl, setClientDownloadUrl] = useState<string | null>(null);
+    const [videoWidth, setVideoWidth] = useState(1080);
+    const [videoHeight, setVideoHeight] = useState(1920);
+
+    // Pre-compute subtitle entries using unified logic
+    const subtitleEntries = useMemo(() => {
+        return buildSubtitleEntries(subtitles, styleConfig);
+    }, [subtitles, styleConfig]);
 
     // --- Playback Logic ---
     const togglePlay = () => {
@@ -49,29 +63,26 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
         const updateScale = () => {
             if (videoRef.current && containerRef.current) {
                 const video = videoRef.current;
-                const videoWidth = video.videoWidth;
-                const videoHeight = video.videoHeight;
+                const vw = video.videoWidth;
+                const vh = video.videoHeight;
                 const elementWidth = video.clientWidth;
                 const elementHeight = video.clientHeight;
 
-                if (videoWidth > 0 && videoHeight > 0) {
-                    const videoRatio = videoWidth / videoHeight;
+                if (vw > 0 && vh > 0) {
+                    const videoRatio = vw / vh;
                     const elementRatio = elementWidth / elementHeight;
 
                     let scale = 1;
                     if (elementRatio > videoRatio) {
-                        // Pillarboxed (container wider than video)
-                        scale = elementHeight / videoHeight;
+                        scale = elementHeight / vh;
                     } else {
-                        // Letterboxed (container taller than video)
-                        scale = elementWidth / videoWidth;
+                        scale = elementWidth / vw;
                     }
                     setPreviewScale(scale);
                 }
             }
         };
         window.addEventListener('resize', updateScale);
-        // Initial call
         updateScale();
         return () => window.removeEventListener('resize', updateScale);
     }, [videoUrl]);
@@ -79,101 +90,40 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
     const handleLoadedMetadata = () => {
         if (videoRef.current) {
             const video = videoRef.current;
-            // Force update scale immediately when metadata loads
-            const videoWidth = video.videoWidth;
-            const videoHeight = video.videoHeight;
+            setVideoWidth(video.videoWidth || 1080);
+            setVideoHeight(video.videoHeight || 1920);
+
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
             const elementWidth = video.clientWidth;
             const elementHeight = video.clientHeight;
 
-            if (videoWidth > 0 && videoHeight > 0) {
-                const videoRatio = videoWidth / videoHeight;
+            if (vw > 0 && vh > 0) {
+                const videoRatio = vw / vh;
                 const elementRatio = elementWidth / elementHeight;
                 let scale = 1;
-
-                // If container hasn't sized yet, we might rely on width matching
                 if (elementRatio > videoRatio) {
-                    scale = elementHeight / videoHeight;
+                    scale = elementHeight / vh;
                 } else {
-                    scale = elementWidth / videoWidth;
+                    scale = elementWidth / vw;
                 }
                 setPreviewScale(scale);
             }
         }
     };
 
-
-    // --- Subtitle Rendering Logic (Duplicated from App.tsx/Display Logic) ---
-    const activeSubtitle = subtitles.find(
-        s => currentTime >= s.startTime && currentTime <= s.endTime
-    );
-
+    // --- Get displayed text using pre-computed entries ---
     const getDisplayedText = () => {
-        if (!activeSubtitle) return null;
-        if (styleConfig.displayMode === 'sentence') return activeSubtitle.text;
-        if (!activeSubtitle.words || activeSubtitle.words.length === 0) return activeSubtitle.text;
-
-        let currentWordIndex = activeSubtitle.words.findIndex(
-            w => currentTime >= w.startTime && currentTime <= w.endTime
+        const activeEntry = subtitleEntries.find(
+            e => currentTime >= e.startTime && currentTime <= e.endTime
         );
-
-        if (currentWordIndex === -1) {
-            for (let i = activeSubtitle.words.length - 1; i >= 0; i--) {
-                if (currentTime >= activeSubtitle.words[i].startTime) {
-                    currentWordIndex = i;
-                    break;
-                }
-            }
-            if (currentWordIndex === -1) currentWordIndex = 0;
-        }
-
-        if (styleConfig.displayMode === 'word') {
-            return activeSubtitle.words[currentWordIndex].text;
-        }
-
-        if (styleConfig.displayMode === 'phrase') {
-            const wordsPerLine = styleConfig.wordsPerLine || 3;
-            const allWords = activeSubtitle.words;
-            let currentChunk = [];
-            let wordCount = 0;
-
-            for (let i = 0; i < allWords.length; i++) {
-                const word = allWords[i];
-                currentChunk.push(word);
-                wordCount++;
-                const hasPunctuation = /[.?!,]/.test(word.text);
-                const shouldBreak = wordCount >= wordsPerLine || (hasPunctuation && wordCount > 1);
-
-                if (shouldBreak || i === allWords.length - 1) {
-                    const startIndex = i - wordCount + 1;
-                    const endIndex = i;
-                    if (currentWordIndex >= startIndex && currentWordIndex <= endIndex) {
-                        return currentChunk.map(w => w.text).join(' ');
-                    }
-                    currentChunk = [];
-                    wordCount = 0;
-                }
-            }
-            return activeSubtitle.text;
-        }
-        return activeSubtitle.text;
+        return activeEntry?.text || null;
     };
-
 
     // --- Export Actions ---
     const handleExportSRT = () => {
-        // Generate SRT content
-        let srtContent = '';
-        subtitles.forEach((sub, index) => {
-            const formatTime = (seconds: number) => {
-                const date = new Date(0);
-                date.setMilliseconds(seconds * 1000);
-                return date.toISOString().substr(11, 12).replace('.', ',');
-            };
-            srtContent += `${index + 1}\n`;
-            srtContent += `${formatTime(sub.startTime)} --> ${formatTime(sub.endTime)}\n`;
-            srtContent += `${sub.text}\n\n`;
-        });
-
+        // Use pre-computed entries for perfect consistency
+        const srtContent = generateSRTContent(subtitleEntries);
         const blob = new Blob([srtContent], { type: 'text/srt' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -186,15 +136,45 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
     };
 
     const handleExportVideo = async () => {
-        setIsExporting(true);
-        try {
-            const downloadUrl = await exportVideo(currentFilename, subtitles, styleConfig, selectedFormat);
-            window.open(downloadUrl, '_blank');
-        } catch (error) {
-            console.error("Export failed:", error);
-            alert("Failed to export video. Please try again.");
-        } finally {
-            setIsExporting(false);
+        if (exportMode === 'client') {
+            setExportState('client-exporting');
+        } else {
+            setExportState('exporting');
+            try {
+                const downloadUrl = await exportVideo(currentFilename, subtitles, styleConfig, selectedFormat);
+                window.open(downloadUrl, '_blank');
+                setExportState('complete');
+            } catch (error) {
+                console.error("Export failed:", error);
+                alert("Failed to export video. Please try again.");
+                setExportState('idle');
+            }
+        }
+    };
+
+    const handleClientExportComplete = (blobUrl: string) => {
+        setClientDownloadUrl(blobUrl);
+        setExportState('complete');
+    };
+
+    const handleClientExportError = (error: string) => {
+        console.error('Client export error:', error);
+        alert(`Client-side export failed: ${error}\n\nTry using server-side export instead.`);
+        setExportState('idle');
+    };
+
+    const handleClientExportCancel = () => {
+        setExportState('idle');
+    };
+
+    const handleDownloadClientVideo = () => {
+        if (clientDownloadUrl) {
+            const a = document.createElement('a');
+            a.href = clientDownloadUrl;
+            a.download = `${currentFilename.split('.')[0]}_subtitled.${selectedFormat}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
     };
 
@@ -202,6 +182,8 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
         handleExportSRT();
         await handleExportVideo();
     };
+
+    const isExporting = exportState === 'exporting' || exportState === 'client-exporting';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -211,7 +193,8 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
                 {/* Close Button */}
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/5 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-md border border-white/5"
+                    disabled={isExporting}
+                    className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/5 hover:bg-white/20 text-white/70 hover:text-white transition-all backdrop-blur-md border border-white/5 disabled:opacity-50"
                 >
                     <XIcon className="w-5 h-5" />
                 </button>
@@ -238,7 +221,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
                         )}
 
                         {/* Subtitle Overlay */}
-                        {activeSubtitle && (
+                        {getDisplayedText() && (
                             <div
                                 className="absolute w-full flex justify-center pointer-events-none px-4 text-center transition-all duration-75"
                                 style={{ top: `${styleConfig.yAlign}%` }}
@@ -255,61 +238,156 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
                 </div>
 
                 {/* Right: Export Options */}
-                <div className="w-full md:w-80 bg-white/5 border-l border-white/5 p-8 flex flex-col gap-8 shrink-0">
+                <div className="w-full md:w-80 bg-white/5 border-l border-white/5 p-8 flex flex-col gap-6 shrink-0 overflow-y-auto">
                     <div>
                         <h2 className="text-2xl font-bold text-white mb-2">Export</h2>
                         <p className="text-zinc-400 text-sm">Choose how you want to save your video.</p>
                     </div>
 
-                    <div className="space-y-6">
-                        {/* Format Selection */}
-                        <div className="space-y-3">
-                            <label className="text-sm font-medium text-zinc-300">Video Format</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {['mp4', 'mov', 'avi'].map((fmt) => (
+                    {/* Client Export Progress */}
+                    {exportState === 'client-exporting' && (
+                        <ClientExporter
+                            videoUrl={videoUrl}
+                            entries={subtitleEntries}
+                            styleConfig={styleConfig}
+                            videoWidth={videoWidth}
+                            videoHeight={videoHeight}
+                            outputFilename={currentFilename}
+                            format={selectedFormat}
+                            onComplete={handleClientExportComplete}
+                            onError={handleClientExportError}
+                            onCancel={handleClientExportCancel}
+                        />
+                    )}
+
+                    {/* Normal Export UI */}
+                    {exportState !== 'client-exporting' && (
+                        <div className="space-y-6">
+                            {/* Export Mode Toggle */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-zinc-300">Export Method</label>
+                                <div className="grid grid-cols-2 gap-2">
                                     <button
-                                        key={fmt}
-                                        onClick={() => setSelectedFormat(fmt)}
-                                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${selectedFormat === fmt
-                                            ? 'bg-primary text-white shadow-lg shadow-primary/25 ring-1 ring-primary-400'
-                                            : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
+                                        onClick={() => setExportMode('server')}
+                                        className={`flex flex-col items-center py-3 px-2 rounded-xl border transition-all ${exportMode === 'server'
+                                                ? 'bg-primary/20 border-primary/50 text-white'
+                                                : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10'
                                             }`}
                                     >
-                                        {fmt.toUpperCase()}
+                                        <span className="text-lg mb-1">🖥️</span>
+                                        <span className="text-xs font-medium">Server</span>
+                                        <span className="text-[9px] text-zinc-500">Recommended</span>
                                     </button>
-                                ))}
+                                    <button
+                                        onClick={() => setExportMode('client')}
+                                        className={`flex flex-col items-center py-3 px-2 rounded-xl border transition-all ${exportMode === 'client'
+                                                ? 'bg-primary/20 border-primary/50 text-white'
+                                                : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10'
+                                            }`}
+                                    >
+                                        <span className="text-lg mb-1">🌐</span>
+                                        <span className="text-xs font-medium">Browser</span>
+                                        <span className="text-[9px] text-zinc-500">No upload</span>
+                                    </button>
+                                </div>
+                                {exportMode === 'client' && (
+                                    <p className="text-[10px] text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2">
+                                        ⚠️ Browser export works offline but may be slower for long videos.
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Format Selection */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium text-zinc-300">Video Format</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['mp4', 'mov', 'avi'].map((fmt) => (
+                                        <button
+                                            key={fmt}
+                                            onClick={() => setSelectedFormat(fmt)}
+                                            disabled={exportMode === 'client' && fmt === 'avi'}
+                                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${selectedFormat === fmt
+                                                ? 'bg-primary text-white shadow-lg shadow-primary/25 ring-1 ring-primary-400'
+                                                : 'bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-white'
+                                                } ${exportMode === 'client' && fmt === 'avi' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                        >
+                                            {fmt.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-white/10" />
+
+                            {/* Subtitle Entry Stats */}
+                            <div className="bg-white/5 rounded-xl p-4 space-y-2">
+                                <h4 className="text-xs font-medium text-zinc-400">Subtitle Preview</h4>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-zinc-500">Entries</span>
+                                    <span className="text-white font-medium">{subtitleEntries.length}</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-zinc-500">Mode</span>
+                                    <span className="text-white font-medium capitalize">{styleConfig.displayMode}</span>
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-white/10" />
+
+                            {/* Action Buttons */}
+                            <div className="space-y-3">
+                                <button
+                                    onClick={handleExportSRT}
+                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-200 transition-all group"
+                                >
+                                    <span className="flex items-center gap-3">
+                                        <div className="p-2 rounded-lg bg-[#FFD700]/10 text-[#FFD700]">
+                                            <DownloadIcon className="w-4 h-4" />
+                                        </div>
+                                        <span className="font-medium">Download SRT</span>
+                                    </span>
+                                    <span className="text-xs text-zinc-500 group-hover:text-zinc-400">.srt</span>
+                                </button>
+
+                                {exportState === 'complete' && clientDownloadUrl ? (
+                                    <button
+                                        onClick={handleDownloadClientVideo}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-300 transition-all group"
+                                    >
+                                        <span className="flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-green-500/20 text-green-400">
+                                                <DownloadIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="font-medium">Download Video</span>
+                                        </span>
+                                        <span className="text-xs text-green-400">Ready!</span>
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={handleExportVideo}
+                                        disabled={isExporting}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-200 transition-all group disabled:opacity-50 disabled:cursor-wait"
+                                    >
+                                        <span className="flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                                                <FilmIcon className="w-4 h-4" />
+                                            </div>
+                                            <span className="font-medium">{isExporting ? 'Processing...' : 'Export Video'}</span>
+                                        </span>
+                                        <span className="text-xs text-zinc-500 group-hover:text-zinc-400">.{selectedFormat}</span>
+                                    </button>
+                                )}
+
+                                <button
+                                    onClick={handleExportBoth}
+                                    disabled={isExporting}
+                                    className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-white text-black font-bold hover:bg-zinc-200 shadow-xl shadow-white/5 transition-all active:scale-95 disabled:opacity-70"
+                                >
+                                    Download Both
+                                </button>
                             </div>
                         </div>
-
-                        <div className="h-px bg-white/10" />
-
-                        {/* Action Buttons */}
-                        <div className="space-y-3">
-                            <button onClick={handleExportSRT} className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-200 transition-all group">
-                                <span className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-[#FFD700]/10 text-[#FFD700]">
-                                        <DownloadIcon className="w-4 h-4" />
-                                    </div>
-                                    <span className="font-medium">Download SRT</span>
-                                </span>
-                                <span className="text-xs text-zinc-500 group-hover:text-zinc-400">.srt</span>
-                            </button>
-
-                            <button onClick={handleExportVideo} disabled={isExporting} className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-200 transition-all group disabled:opacity-50 disabled:cursor-wait">
-                                <span className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                                        <FilmIcon className="w-4 h-4" />
-                                    </div>
-                                    <span className="font-medium">{isExporting ? 'Procesing...' : 'Download Video'}</span>
-                                </span>
-                                <span className="text-xs text-zinc-500 group-hover:text-zinc-400">.{selectedFormat}</span>
-                            </button>
-
-                            <button onClick={handleExportBoth} disabled={isExporting} className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-4 rounded-xl bg-white text-black font-bold hover:bg-zinc-200 shadow-xl shadow-white/5 transition-all active:scale-95 disabled:opacity-70">
-                                Download Both
-                            </button>
-                        </div>
-                    </div>
+                    )}
                 </div>
 
             </div>
