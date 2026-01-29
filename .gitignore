@@ -45,3 +45,5 @@ outputs/
 # OS generated files
 .DS_Store
 Thumbs.db
+.agents/
+.agent/
