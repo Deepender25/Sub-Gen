@@ -8,10 +8,36 @@ import Timeline from './components/Timeline';
 import ExportModal from './components/ExportModal';
 import DiscardModal from './components/DiscardModal';
 import { DynamicSubtitle } from './components/DynamicSubtitle';
+import { VIDEO_PRESETS, VideoPreset } from './utils/subtitleUtils';
 
 import { uploadVideo, generateSubtitles, exportVideo } from './services/api';
 import { useHistory } from './hooks/useHistory';
 import { PlayIcon, WandIcon, UndoIcon, RedoIcon } from './components/Icons';
+
+/**
+ * Detect the best matching preset based on video aspect ratio
+ */
+function detectPresetFromAspectRatio(width: number, height: number): VideoPreset | null {
+  if (width <= 0 || height <= 0) return null;
+
+  const ratio = width / height;
+
+  // Define ratio thresholds for matching
+  // 9:16 = 0.5625, 4:5 = 0.8, 1:1 = 1.0, 16:9 = 1.777
+  if (ratio <= 0.65) {
+    // Vertical video (9:16) - default to Reels
+    return VIDEO_PRESETS.find(p => p.id === 'reels') || null;
+  } else if (ratio <= 0.9) {
+    // Portrait (4:5)
+    return VIDEO_PRESETS.find(p => p.id === 'feed') || null;
+  } else if (ratio <= 1.15) {
+    // Square (1:1)
+    return VIDEO_PRESETS.find(p => p.id === 'square') || null;
+  } else {
+    // Landscape (16:9 or wider)
+    return VIDEO_PRESETS.find(p => p.id === 'landscape') || null;
+  }
+}
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.UPLOAD);
@@ -174,13 +200,25 @@ const App: React.FC = () => {
         height: videoHeight
       });
 
-      // Smart Auto-Sizing: Set font size to roughly 4.5% of the video height
-      // This ensures readability on both 1080p landscapes and 4K verticals
-      const optimalFontSize = Math.max(24, Math.round(videoHeight * 0.045));
-      setStyleConfig(prev => ({
-        ...prev,
-        fontSize: optimalFontSize
-      }));
+      // Auto-detect preset based on aspect ratio
+      const detectedPreset = detectPresetFromAspectRatio(videoWidth, videoHeight);
+
+      if (detectedPreset) {
+        // Apply the detected preset's recommended settings
+        setStyleConfig(prev => ({
+          ...prev,
+          fontSize: detectedPreset.recommendedFontSize,
+          yAlign: detectedPreset.recommendedYAlign,
+          activePreset: detectedPreset.id
+        }));
+      } else {
+        // Fallback: Smart Auto-Sizing based on video height
+        const optimalFontSize = Math.max(24, Math.round(videoHeight * 0.045));
+        setStyleConfig(prev => ({
+          ...prev,
+          fontSize: optimalFontSize
+        }));
+      }
     }
   };
 
