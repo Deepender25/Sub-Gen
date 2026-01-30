@@ -1,9 +1,17 @@
 import React from 'react';
 import { StyleConfig } from '../types';
-import { TypeIcon, PaletteIcon } from './Icons';
+import { TypeIcon, PaletteIcon, Ratio16x9Icon, Ratio9x16Icon, Ratio1x1Icon, Ratio4x5Icon, LayoutIcon } from './Icons';
 import FontSelector from './FontSelector';
 import ColorPicker from './ColorPicker';
 import { VIDEO_PRESETS } from '../utils/subtitleUtils';
+
+// Icon mapping for dynamic rendering
+const RatioIconMap: Record<string, React.FC<{ className?: string }>> = {
+    'Ratio16x9Icon': Ratio16x9Icon,
+    'Ratio9x16Icon': Ratio9x16Icon,
+    'Ratio1x1Icon': Ratio1x1Icon,
+    'Ratio4x5Icon': Ratio4x5Icon,
+};
 
 interface StyleEditorProps {
     config: StyleConfig;
@@ -42,32 +50,35 @@ const StyleEditor: React.FC<StyleEditorProps> = ({ config, onChange }) => {
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                 <div className="space-y-8">
 
-                    {/* --- PLATFORM PRESETS --- */}
+                    {/* --- ASPECT RATIO PRESETS --- */}
                     <div className="space-y-4">
                         <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-2">
-                            🎬 Platform Presets
+                            <LayoutIcon className="w-4 h-4" /> Aspect Ratios
                         </h3>
                         <div className="grid grid-cols-2 gap-2">
-                            {VIDEO_PRESETS.map((preset) => (
-                                <button
-                                    key={preset.id}
-                                    onClick={() => applyPreset(preset.id)}
-                                    className={`relative flex flex-col items-center justify-center py-3 px-2 rounded-xl border transition-all ${config.activePreset === preset.id
+                            {VIDEO_PRESETS.map((preset) => {
+                                const IconComponent = RatioIconMap[preset.icon];
+                                return (
+                                    <button
+                                        key={preset.id}
+                                        onClick={() => applyPreset(preset.id)}
+                                        className={`relative flex flex-col items-center justify-center py-3 px-2 rounded-xl border transition-all ${config.activePreset === preset.id
                                             ? 'bg-primary/20 border-primary/50 text-white shadow-lg shadow-primary/10'
                                             : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10 hover:text-white hover:border-white/10'
-                                        }`}
-                                >
-                                    <span className="text-lg mb-1">{preset.icon}</span>
-                                    <span className="text-[10px] font-medium text-center leading-tight">{preset.name}</span>
-                                    <span className="text-[9px] text-zinc-500 mt-0.5">{preset.aspectRatio}</span>
-                                    {config.activePreset === preset.id && (
-                                        <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-pulse" />
-                                    )}
-                                </button>
-                            ))}
+                                            }`}
+                                    >
+                                        {IconComponent && <IconComponent className="w-8 h-8 mb-1" />}
+                                        <span className="text-[10px] font-medium text-center leading-tight">{preset.name}</span>
+                                        <span className="text-[9px] text-zinc-500 mt-0.5">{preset.aspectRatio}</span>
+                                        {config.activePreset === preset.id && (
+                                            <div className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                         <p className="text-[10px] text-zinc-500 text-center">
-                            Presets auto-adjust font size & position for each platform
+                            Presets auto-adjust font size & position for each ratio
                         </p>
                     </div>
 

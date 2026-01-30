@@ -25,68 +25,48 @@ export interface VideoPreset {
 }
 
 /**
- * Predefined presets for popular platforms
+ * Predefined presets for common aspect ratios
  */
 export const VIDEO_PRESETS: VideoPreset[] = [
     {
-        id: 'reels',
-        name: 'Instagram Reels',
-        aspectRatio: '9:16',
-        width: 1080,
-        height: 1920,
-        recommendedFontSize: 48,
-        recommendedYAlign: 75,
-        icon: '📱'
-    },
-    {
-        id: 'shorts',
-        name: 'YouTube Shorts',
-        aspectRatio: '9:16',
-        width: 1080,
-        height: 1920,
-        recommendedFontSize: 52,
-        recommendedYAlign: 70,
-        icon: '▶️'
-    },
-    {
-        id: 'tiktok',
-        name: 'TikTok',
+        id: '9:16',
+        name: 'Portrait',
         aspectRatio: '9:16',
         width: 1080,
         height: 1920,
         recommendedFontSize: 50,
         recommendedYAlign: 72,
-        icon: '🎵'
+        icon: 'Ratio9x16Icon'
     },
     {
-        id: 'feed',
-        name: 'Instagram Feed',
+        id: '4:5',
+        name: 'Portrait Wide',
         aspectRatio: '4:5',
         width: 1080,
         height: 1350,
         recommendedFontSize: 42,
         recommendedYAlign: 80,
-        icon: '📷'
+        icon: 'Ratio4x5Icon'
     },
     {
-        id: 'square',
+        id: '1:1',
         name: 'Square',
         aspectRatio: '1:1',
         width: 1080,
         height: 1080,
         recommendedFontSize: 36,
         recommendedYAlign: 82,
-        icon: '⬜'
+        icon: 'Ratio1x1Icon'
     },
     {
-        id: 'landscape',
-        name: 'Landscape (16:9)',
+        id: '16:9',
+        name: 'Landscape',
         aspectRatio: '16:9',
         width: 1920,
         height: 1080,
         recommendedFontSize: 28,
         recommendedYAlign: 85,
-        icon: '🖥️'
+        icon: 'Ratio16x9Icon'
     }
 ];
 

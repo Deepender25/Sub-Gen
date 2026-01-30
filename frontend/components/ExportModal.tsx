@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Subtitle, StyleConfig } from '../types';
-import { XIcon, DownloadIcon, FilmIcon } from './Icons';
+import { XIcon, DownloadIcon, FilmIcon, ServerIcon, GlobeIcon, AlertTriangleIcon } from './Icons';
 import { exportVideo } from '../services/api';
 import { DynamicSubtitle } from './DynamicSubtitle';
 import { buildSubtitleEntries, generateSRTContent, SubtitleEntry } from '../utils/subtitleUtils';
@@ -270,29 +270,30 @@ const ExportModal: React.FC<ExportModalProps> = ({ videoUrl, subtitles, styleCon
                                     <button
                                         onClick={() => setExportMode('server')}
                                         className={`flex flex-col items-center py-3 px-2 rounded-xl border transition-all ${exportMode === 'server'
-                                                ? 'bg-primary/20 border-primary/50 text-white'
-                                                : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10'
+                                            ? 'bg-primary/20 border-primary/50 text-white'
+                                            : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10'
                                             }`}
                                     >
-                                        <span className="text-lg mb-1">🖥️</span>
+                                        <ServerIcon className="w-5 h-5 mb-1" />
                                         <span className="text-xs font-medium">Server</span>
                                         <span className="text-[9px] text-zinc-500">Recommended</span>
                                     </button>
                                     <button
                                         onClick={() => setExportMode('client')}
                                         className={`flex flex-col items-center py-3 px-2 rounded-xl border transition-all ${exportMode === 'client'
-                                                ? 'bg-primary/20 border-primary/50 text-white'
-                                                : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10'
+                                            ? 'bg-primary/20 border-primary/50 text-white'
+                                            : 'bg-white/5 border-white/5 text-zinc-400 hover:bg-white/10'
                                             }`}
                                     >
-                                        <span className="text-lg mb-1">🌐</span>
+                                        <GlobeIcon className="w-5 h-5 mb-1" />
                                         <span className="text-xs font-medium">Browser</span>
                                         <span className="text-[9px] text-zinc-500">No upload</span>
                                     </button>
                                 </div>
                                 {exportMode === 'client' && (
-                                    <p className="text-[10px] text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2">
-                                        ⚠️ Browser export works offline but may be slower for long videos.
+                                    <p className="text-[10px] text-amber-400/80 bg-amber-500/10 rounded-lg px-3 py-2 flex items-center gap-2">
+                                        <AlertTriangleIcon className="w-4 h-4 flex-shrink-0" />
+                                        <span>Browser export works offline but may be slower for long videos.</span>
                                     </p>
                                 )}
                             </div>

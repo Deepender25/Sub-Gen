@@ -25,17 +25,17 @@ function detectPresetFromAspectRatio(width: number, height: number): VideoPreset
   // Define ratio thresholds for matching
   // 9:16 = 0.5625, 4:5 = 0.8, 1:1 = 1.0, 16:9 = 1.777
   if (ratio <= 0.65) {
-    // Vertical video (9:16) - default to Reels
-    return VIDEO_PRESETS.find(p => p.id === 'reels') || null;
+    // Vertical video (9:16)
+    return VIDEO_PRESETS.find(p => p.id === '9:16') || null;
   } else if (ratio <= 0.9) {
     // Portrait (4:5)
-    return VIDEO_PRESETS.find(p => p.id === 'feed') || null;
+    return VIDEO_PRESETS.find(p => p.id === '4:5') || null;
   } else if (ratio <= 1.15) {
     // Square (1:1)
-    return VIDEO_PRESETS.find(p => p.id === 'square') || null;
+    return VIDEO_PRESETS.find(p => p.id === '1:1') || null;
   } else {
     // Landscape (16:9 or wider)
-    return VIDEO_PRESETS.find(p => p.id === 'landscape') || null;
+    return VIDEO_PRESETS.find(p => p.id === '16:9') || null;
   }
 }
 
