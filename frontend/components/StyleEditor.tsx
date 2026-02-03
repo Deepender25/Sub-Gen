@@ -30,7 +30,8 @@ const StyleEditor: React.FC<StyleEditorProps> = ({ config, onChange }) => {
                 ...config,
                 fontSize: preset.recommendedFontSize,
                 yAlign: preset.recommendedYAlign,
-                activePreset: presetId
+                activePreset: presetId,
+                aspectRatio: preset.aspectRatio
             });
         }
     };

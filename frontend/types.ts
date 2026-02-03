@@ -28,6 +28,7 @@ export interface StyleConfig {
   displayMode: 'word' | 'phrase' | 'sentence';
   wordsPerLine?: number;
   activePreset?: string; // ID of the active video preset (e.g., 'reels', 'shorts')
+  aspectRatio?: string; // Target aspect ratio (e.g., '9:16', '16:9') or undefined for auto
 }
 
 // Default style optimized for vertical video (Instagram Reels / YouTube Shorts)
@@ -41,5 +42,6 @@ export const DEFAULT_STYLE: StyleConfig = {
   fontWeight: '600',
   displayMode: 'word',
   wordsPerLine: 3,
-  activePreset: 'reels' // Default to Instagram Reels
+  activePreset: '9:16', // Default to Portrait
+  aspectRatio: '9:16'
 };

@@ -132,11 +132,25 @@ const App: React.FC = () => {
   }, [isPlaying]);
 
   // --- Scale Calculation ---
+  // Calculate scale based on the canvas (container) dimensions for proper subtitle positioning
   useEffect(() => {
     const updateScale = () => {
       if (videoRef.current && videoSize.width > 0) {
-        const clientWidth = videoRef.current.clientWidth;
-        setPreviewScale(clientWidth / videoSize.width);
+        // With object-contain, the video's clientWidth is the container width
+        // For letterboxing, we want subtitles relative to the canvas
+        const containerWidth = videoRef.current.clientWidth;
+
+        // Calculate the "effective" width for scaling
+        // This should be based on what preset/canvas we're using
+        const presetRatio = styleConfig.aspectRatio
+          ? parseFloat(styleConfig.aspectRatio.split(':')[0]) / parseFloat(styleConfig.aspectRatio.split(':')[1])
+          : videoSize.width / videoSize.height;
+
+        // Get the preset's reference width (or use video's native width)
+        const preset = VIDEO_PRESETS.find(p => p.id === styleConfig.aspectRatio);
+        const referenceWidth = preset?.width || videoSize.width;
+
+        setPreviewScale(containerWidth / referenceWidth);
       }
     };
 
@@ -148,7 +162,7 @@ const App: React.FC = () => {
       window.removeEventListener('resize', updateScale);
       clearInterval(interval);
     };
-  }, [videoSize.width]);
+  }, [videoSize.width, styleConfig.aspectRatio]);
 
   useEffect(() => {
     return () => {
@@ -209,7 +223,8 @@ const App: React.FC = () => {
           ...prev,
           fontSize: detectedPreset.recommendedFontSize,
           yAlign: detectedPreset.recommendedYAlign,
-          activePreset: detectedPreset.id
+          activePreset: detectedPreset.id,
+          aspectRatio: detectedPreset.aspectRatio
         }));
       } else {
         // Fallback: Smart Auto-Sizing based on video height
@@ -438,18 +453,21 @@ const App: React.FC = () => {
                     />
                   </div>
 
-                  {/* Main Video Container */}
-                  <div className="relative z-10 max-h-full max-w-full aspect-[var(--aspect-ratio)] shadow-2xl"
-                    style={{ '--aspect-ratio': videoSize.width && videoSize.height ? `${videoSize.width}/${videoSize.height}` : '16/9' } as any}>
+                  {/* Main Video Container - Letterbox/Pillarbox Canvas */}
+                  <div className="relative z-10 max-h-full max-w-full aspect-[var(--aspect-ratio)] shadow-2xl transition-all duration-500 ease-in-out flex items-center justify-center bg-black overflow-hidden rounded-lg"
+                    style={{
+                      '--aspect-ratio': styleConfig.aspectRatio
+                        ? styleConfig.aspectRatio.replace(':', '/')
+                        : (videoSize.width && videoSize.height ? `${videoSize.width}/${videoSize.height}` : '16/9')
+                    } as any}>
                     <video
                       ref={videoRef}
                       src={videoUrl}
-                      className="max-h-full max-w-full block"
+                      className="w-full h-full object-contain"
                       onTimeUpdate={handleTimeUpdate}
                       onLoadedMetadata={handleLoadedMetadata}
                       onClick={togglePlay}
                       onEnded={() => setIsPlaying(false)}
-                      style={{ maxHeight: 'calc(100vh - 160px)' }} // Prevent overflow
                     />
 
                     {/* Controls Overlay */}
